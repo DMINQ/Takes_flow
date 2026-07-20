@@ -1,0 +1,108 @@
+# TakeFlow — full stack.
+#
+#   docker compose up --build
+#   API docs: http://localhost:8000/docs
+#
+# api / worker / relay all run the SAME image (built once), differing only by
+# `command`. Postgres + Redis back the transactional outbox → FastStream flow.
+
+# Only the `api` service builds the image; worker/relay reuse the built tag to
+# avoid three services racing to export the same tag under `--build`.
+x-backend-image: &backend-image
+  image: takeflow-backend:latest
+
+x-backend-env: &backend-env
+  # DB (local container by default; set DATABASE_URL to point at a remote DB "by link")
+  DB_HOST: db
+  DB_NAME: takeflow
+  DB_USER: postgres
+  DB_PASSWORD: ${DB_PASSWORD:-postgres}
+  DATABASE_URL: ${DATABASE_URL:-}
+  # Broker (FastStream over Redis; BROKER_PROVIDER=nats + BROKER_URL to switch)
+  BROKER_PROVIDER: ${BROKER_PROVIDER:-redis}
+  BROKER_URL: ${BROKER_URL:-redis://redis:6379}
+  # Providers — all swappable without code changes
+  TRANSCRIBER_PROVIDER: ${TRANSCRIBER_PROVIDER:-local}
+  TRANSCRIBER_MODEL: ${TRANSCRIBER_MODEL:-base}
+  TRANSCRIBER_DEVICE: ${TRANSCRIBER_DEVICE:-cpu}
+  TRANSCRIBER_COMPUTE_TYPE: ${TRANSCRIBER_COMPUTE_TYPE:-int8}
+  DIARIZER_PROVIDER: ${DIARIZER_PROVIDER:-stub}
+  LLM_PROVIDER: ${LLM_PROVIDER:-off}
+  STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+  APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-*}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: takeflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - takeflow-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d takeflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    <<: *backend-image
+    build:                 # the single build; worker/relay reuse this image tag
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "1"  # the api owns schema migration
+    ports:
+      - "8000:8000"
+    volumes:
+      - takeflow-data:/data
+      - takeflow-models:/models
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+
+  worker:
+    <<: *backend-image
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "0"  # api already migrated
+    volumes:
+      - takeflow-data:/data
+      - takeflow-models:/models   # shares the Whisper weights volume
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      api: {condition: service_started}
+    command: ["python", "-m", "src.worker.main"]
+    restart: unless-stopped
+
+  relay:
+    <<: *backend-image
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      api: {condition: service_started}
+    command: ["python", "-m", "src.worker.relay"]
+    restart: unless-stopped
+
+volumes:
+  takeflow-db:
+  takeflow-data:
+  takeflow-models:
