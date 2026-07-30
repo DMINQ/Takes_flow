@@ -28,3 +28,23 @@ class OutOfMemoryError(TranscriptionError):
 
 class AudioProcessingError(DomainError):
     pass
+
+
+class UploadSessionNotFoundError(DomainError):
+    pass
+
+
+class UploadNotFinishedError(DomainError):
+    """Client called complete but storage has no (or a partial) object."""
+
+
+class UploadSizeMismatchError(DomainError):
+    """Stored size disagrees with what the client declared at initiation."""
+
+
+class UploadStateError(DomainError):
+    """Operation is invalid for the session's current status."""
+
+
+class StorageError(DomainError):
+    """Object storage refused or failed an operation."""

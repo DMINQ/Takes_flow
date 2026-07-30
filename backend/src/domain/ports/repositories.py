@@ -8,14 +8,28 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from src.domain.entities import Job, Media, TimelineRegion
-from src.domain.enums import JobStatus
+from src.domain.entities import Job, Media, TimelineRegion, UploadSession
+from src.domain.enums import JobStatus, UploadStatus
 
 
 @runtime_checkable
 class MediaRepository(Protocol):
     async def add(self, media: Media) -> Media: ...
     async def get(self, media_id: str) -> Media | None: ...
+
+
+@runtime_checkable
+class UploadSessionRepository(Protocol):
+    """Tracks client-direct uploads the API mediates but never carries."""
+
+    async def add(self, session: UploadSession) -> UploadSession: ...
+    async def get(self, session_id: str) -> UploadSession | None: ...
+    async def set_status(
+        self, session_id: str, status: UploadStatus, *, media_id: str | None = None
+    ) -> None: ...
+    async def fetch_stale(self, limit: int) -> list[UploadSession]:
+        """INITIATED sessions past their expiry — the sweeper aborts these."""
+        ...
 
 
 @runtime_checkable

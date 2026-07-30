@@ -8,10 +8,17 @@ Dependency Inversion boundary of the app.
 """
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from src.domain.entities import Speaker, Word
+from src.domain.entities import (
+    PartUploadTicket,
+    Speaker,
+    StoredObject,
+    UploadTicket,
+    Word,
+)
 
 
 @runtime_checkable
@@ -61,13 +68,58 @@ class AudioEnginePort(Protocol):
 
 @runtime_checkable
 class StoragePort(Protocol):
-    """Persist and resolve media/output artifacts (local fs or S3)."""
+    """
+    Object storage for media and artifacts (filesystem, S3, MinIO).
 
-    async def save_stream(self, file_id: str, extension: str, chunks) -> tuple[Path, int]:
-        """Stream chunks to storage; return (path, size_bytes)."""
+    Deliberately object-oriented rather than path-oriented: bytes never travel
+    through the API process. Clients upload straight to storage using
+    short-lived presigned URLs, and the API only mints tickets and verifies the
+    result. `materialize` exists because ffmpeg/Whisper need a real local file;
+    it is the single, explicit place where an object becomes a path.
+    """
+
+    # --- direct upload (single request; for files under the multipart threshold) ---
+    async def presign_put(self, key: str, *, content_type: str | None, expires_in: int) -> UploadTicket:
+        """Mint a short-lived URL the client PUTs the whole object to."""
         ...
 
-    def resolve(self, file_id: str) -> Path | None: ...
+    # --- multipart upload (large files: parallel parts, per-part retry) ---
+    async def create_multipart(self, key: str, *, content_type: str | None) -> str:
+        """Begin a multipart upload; returns the storage-assigned upload id."""
+        ...
+
+    async def presign_parts(
+        self, key: str, upload_id: str, *, part_numbers: list[int], expires_in: int
+    ) -> list[PartUploadTicket]:
+        """Mint one URL per part. Parts may be uploaded in parallel and retried."""
+        ...
+
+    async def complete_multipart(self, key: str, upload_id: str, parts: list[tuple[int, str]]) -> StoredObject:
+        """Assemble the parts (list of (part_number, etag)) into one object."""
+        ...
+
+    async def abort_multipart(self, key: str, upload_id: str) -> None:
+        """Discard an unfinished upload so partial parts are not billed/kept."""
+        ...
+
+    # --- verification and access ---
+    async def stat(self, key: str) -> StoredObject | None:
+        """Server-side truth about a stored object; None when absent."""
+        ...
+
+    async def open_range(self, key: str, *, start: int, length: int) -> bytes:
+        """Read a byte range — used to sniff the real media type after upload."""
+        ...
+
+    async def materialize(self, key: str, dest_dir: Path) -> Path:
+        """Make the object available as a local file (no-op for the fs adapter)."""
+        ...
+
+    async def save_stream(self, key: str, chunks: AsyncIterator[bytes]) -> StoredObject:
+        """Server-side write — used by the worker for derived artifacts, not uploads."""
+        ...
+
+    async def delete(self, key: str) -> None: ...
 
 
 @runtime_checkable
