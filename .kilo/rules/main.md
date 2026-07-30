@@ -2,8 +2,8 @@
 Stack: Python 3.12, FastAPI, SQLAlchemy 2.0 async, psycopg3, Alembic, FastStream/Redis, faster-whisper, ffmpeg-python, pedalboard, uv
 
 ## Команды
-- тесты: `uv run pytest`
-- линт: `uv run ruff check . && uv run black --check .`
+- тесты: `uv run pytest` (или `uv run --group tests pytest`)
+- линт: `uv run ruff check . && uv run black --check .` (или `--group lint`)
 - запуск: `docker compose up --build` или `uv run uvicorn src.api.main:app --reload`
 - ВАЖНО: перед коммитом — `uv run ruff check . && uv run pytest`
 
