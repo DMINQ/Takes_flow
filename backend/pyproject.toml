@@ -13,30 +13,25 @@ dependencies = [
     "python-multipart==0.0.20",
     "pydantic==2.10.5",
     "pydantic-settings==2.7.1",
-
     # --- Messaging / worker (FastStream over Redis — same API as RabbitMQ, lighter) ---
     "faststream[redis]==0.5.34",
-
     # --- Database (async SQLAlchemy 2.0 + psycopg v3) ---
     "sqlalchemy==2.0.37",
     "psycopg[binary]==3.2.4",
     "alembic==1.14.1",
-
     # --- Transcription (word-level timestamps) ---
     "faster-whisper==1.1.1",
     "requests==2.32.3",       # faster-whisper 1.1.1 imports it but doesn't declare it
-
     # --- Media / audio processing ---
     "ffmpeg-python==0.2.0",
     "pedalboard==0.9.16",
     "pydub==0.25.1",
-
     # --- NLP: bad-take / duplicate detection ---
     "thefuzz==0.22.1",
-
     # --- Misc ---
     "httpx==0.28.1",          # remote provider adapters (remote whisper/llm)
     "python-magic==0.4.27",   # MIME sniffing for uploads
+    "aioboto3==13.3.0",
 ]
 
 [project.optional-dependencies]
@@ -54,4 +49,8 @@ target-version = "py312"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+# The project is not installed (tool.uv package = false), so `src` is imported
+# from the repo root.
+pythonpath = ["."]
