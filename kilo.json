@@ -1,0 +1,31 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "permission": {
+    "read": {
+      "**/.venv/**": "deny",
+      "**/__pycache__/**": "deny",
+      "**/*.pyc": "deny",
+      "**/node_modules/**": "deny",
+      "**/uv.lock": "ask",
+      "**/*.env": "deny",
+      "**/*": "allow"
+    },
+    "grep": {
+      "**/.venv/**": "deny",
+      "**/__pycache__/**": "deny",
+      "**/node_modules/**": "deny",
+      "**/*": "allow"
+    },
+    "glob": {
+      "**/.venv/**": "deny",
+      "**/__pycache__/**": "deny",
+      "**/node_modules/**": "deny",
+      "**/*": "allow"
+    },
+    "edit": {
+      "**/uv.lock": "deny",
+      "**/*": "ask"
+    },
+    "bash": "ask"
+  }
+}
