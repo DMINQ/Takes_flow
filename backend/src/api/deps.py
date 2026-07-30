@@ -13,12 +13,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.application.services.job_service import JobService
 from src.application.services.media_service import MediaService
 from src.application.services.timeline_service import TimelineService
+from src.application.services.upload_service import UploadService
 from src.domain.ports.services import StoragePort, TranscriberPort
 from src.infrastructure.db import get_db
 from src.infrastructure.repositories.job import SqlJobRepository
 from src.infrastructure.repositories.media import SqlMediaRepository
 from src.infrastructure.repositories.outbox import SqlOutboxRepository
 from src.infrastructure.repositories.timeline import SqlTimelineRepository
+from src.infrastructure.repositories.upload_session import SqlUploadSessionRepository
+from src.settings.config import core_settings, storage_settings
 from src.settings.providers import get_storage, get_transcriber
 
 
@@ -50,3 +53,17 @@ def job_service(session: AsyncSession = Depends(get_db)) -> JobService:
 
 def timeline_service(session: AsyncSession = Depends(get_db)) -> TimelineService:
     return TimelineService(SqlTimelineRepository(session))
+
+
+def upload_service(
+    session: AsyncSession = Depends(get_db),
+    storage: StoragePort = Depends(storage_provider),
+) -> UploadService:
+    return UploadService(
+        session,
+        SqlUploadSessionRepository(session),
+        SqlMediaRepository(session),
+        storage,
+        core_settings,
+        storage_settings,
+    )

@@ -1,14 +1,10 @@
 """HTTP request/response schemas for media endpoints — the API contract."""
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-
-class UploadResponse(BaseModel):
-    file_id: str = Field(..., description="Reference this media in later calls.")
-    filename: str
-    size_bytes: int
-    content_type: str | None = None
+# Upload contracts live in api/schemas/uploads.py — clients upload directly to
+# storage, so there is no upload request/response body here.
 
 
 class WordOut(BaseModel):
