@@ -30,6 +30,10 @@ backend/models/
 # effect) — not part of this project, never intended to be committed.
 .kilo/node_modules/
 
+# Agent-generated scratch docs that were never requested — README is the
+# single source of truth for this project, not a second roadmap doc.
+docs/PORTFOLIO_ROADMAP.md
+
 # OS
 .DS_Store
 Thumbs.db
