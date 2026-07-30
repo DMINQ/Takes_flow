@@ -26,6 +26,9 @@ backend/models/
 .idea/
 .vscode/
 *.swp
+# Unrelated JS toolchain that ended up under .kilo/ (some CLI install side
+# effect) — not part of this project, never intended to be committed.
+.kilo/node_modules/
 
 # OS
 .DS_Store
