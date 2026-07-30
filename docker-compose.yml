@@ -11,17 +11,18 @@
 x-backend-image: &backend-image
   image: takeflow-backend:latest
 
+# All defaults, descriptions, and per-environment overrides live in .env
+# (copy from .env.example) — this block only wires those variables through to
+# the containers, it does not define what they mean.
 x-backend-env: &backend-env
-  # DB (local container by default; set DATABASE_URL to point at a remote DB "by link")
+  APP_DEBUG: ${APP_DEBUG:-true}
   DB_HOST: db
   DB_NAME: takeflow
   DB_USER: postgres
   DB_PASSWORD: ${DB_PASSWORD:-postgres}
   DATABASE_URL: ${DATABASE_URL:-}
-  # Broker (FastStream over Redis; BROKER_PROVIDER=nats + BROKER_URL to switch)
   BROKER_PROVIDER: ${BROKER_PROVIDER:-redis}
   BROKER_URL: ${BROKER_URL:-redis://redis:6379}
-  # Providers — all swappable without code changes
   TRANSCRIBER_PROVIDER: ${TRANSCRIBER_PROVIDER:-local}
   TRANSCRIBER_MODEL: ${TRANSCRIBER_MODEL:-base}
   TRANSCRIBER_DEVICE: ${TRANSCRIBER_DEVICE:-cpu}
@@ -29,6 +30,12 @@ x-backend-env: &backend-env
   DIARIZER_PROVIDER: ${DIARIZER_PROVIDER:-stub}
   LLM_PROVIDER: ${LLM_PROVIDER:-off}
   STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+  STORAGE_S3_ENDPOINT: ${STORAGE_S3_ENDPOINT:-http://minio:9000}
+  STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET:-takeflow}
+  STORAGE_S3_ACCESS_KEY: ${STORAGE_S3_ACCESS_KEY:-takeflow}
+  STORAGE_S3_SECRET_KEY: ${STORAGE_S3_SECRET_KEY:-takeflow-dev-secret}
+  STORAGE_S3_REGION: ${STORAGE_S3_REGION:-us-east-1}
+  STORAGE_PRESIGN_SECRET: ${STORAGE_PRESIGN_SECRET:-dev-only-insecure-presign-secret}
   APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-*}
 
 services:
@@ -55,6 +62,41 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+
+  # S3-compatible target for STORAGE_PROVIDER=s3 so the S3Storage adapter
+  # (presigned multipart via aioboto3) is exercised locally, not only in
+  # prod. Not required when STORAGE_PROVIDER=local (the default).
+  minio:
+    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_S3_ACCESS_KEY:-takeflow}
+      MINIO_ROOT_PASSWORD: ${STORAGE_S3_SECRET_KEY:-takeflow-dev-secret}
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - takeflow-minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # One-shot: creates the bucket the app expects, then exits. `mc` ships in
+  # the minio/mc image; there is no long-running server here.
+  minio-init:
+    image: minio/mc:RELEASE.2025-01-17T23-25-50Z
+    depends_on:
+      minio: {condition: service_healthy}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        mc alias set local http://minio:9000
+        "${STORAGE_S3_ACCESS_KEY:-takeflow}" "${STORAGE_S3_SECRET_KEY:-takeflow-dev-secret}" &&
+        mc mb --ignore-existing "local/${STORAGE_S3_BUCKET:-takeflow}"
+    restart: "no"
 
   api:
     <<: *backend-image
@@ -106,3 +148,4 @@ volumes:
   takeflow-db:
   takeflow-data:
   takeflow-models:
+  takeflow-minio:
