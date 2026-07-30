@@ -60,7 +60,7 @@ def get_storage() -> StoragePort:
         return S3Storage(storage_settings)
     from src.infrastructure.storage.local import LocalStorage
 
-    return LocalStorage(core_settings)
+    return LocalStorage(core_settings, storage_settings)
 
 
 @lru_cache

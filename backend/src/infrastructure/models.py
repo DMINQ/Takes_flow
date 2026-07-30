@@ -13,7 +13,7 @@ from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, String, Text, fu
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.domain.enums import JobStatus, OutboxStatus
+from src.domain.enums import JobStatus, OutboxStatus, UploadStatus
 from src.infrastructure.db import Base
 
 
@@ -27,13 +27,42 @@ class MediaModel(Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     filename: Mapped[str] = mapped_column(String(512))
-    path: Mapped[str] = mapped_column(String(1024))
+    # Object key, not a filesystem path: with S3 the bytes may never touch this host.
+    storage_key: Mapped[str] = mapped_column(String(1024), unique=True)
     size_bytes: Mapped[int] = mapped_column(BigInteger)  # files can exceed int32 (2 GiB)
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
     duration: Mapped[float | None] = mapped_column(Float, nullable=True)
+    checksum: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     jobs: Mapped[list["JobModel"]] = relationship(back_populates="media", cascade="all, delete-orphan")
+
+
+class UploadSessionModel(Base):
+    """
+    A negotiated client-direct upload.
+
+    Persisted because the API hands out presigned URLs and then loses sight of
+    the transfer: this row is how `complete` knows what was promised, and how the
+    sweeper finds abandoned multipart uploads to abort.
+    """
+
+    __tablename__ = "upload_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    storage_key: Mapped[str] = mapped_column(String(1024), index=True)
+    filename: Mapped[str] = mapped_column(String(512))
+    declared_size: Mapped[int] = mapped_column(BigInteger)
+    mode: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default=UploadStatus.INITIATED.value, index=True)
+    upload_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    part_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    part_count: Mapped[int | None] = mapped_column(nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Reserved at init, promoted to a real Media row on completion.
+    media_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class JobModel(Base):

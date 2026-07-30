@@ -11,10 +11,11 @@ def _to_entity(row: MediaModel) -> Media:
     return Media(
         id=row.id,
         filename=row.filename,
-        path=row.path,
+        storage_key=row.storage_key,
         size_bytes=row.size_bytes,
         content_type=row.content_type,
         duration=row.duration,
+        checksum=row.checksum,
         created_at=row.created_at,
     )
 
@@ -29,10 +30,11 @@ class SqlMediaRepository:
         row = MediaModel(
             id=media.id,
             filename=media.filename,
-            path=media.path,
+            storage_key=media.storage_key,
             size_bytes=media.size_bytes,
             content_type=media.content_type,
             duration=media.duration,
+            checksum=media.checksum,
         )
         self._s.add(row)
         await self._s.flush()  # populate server defaults (created_at) without committing
