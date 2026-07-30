@@ -14,7 +14,6 @@ bucket and never enter this process.
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 
@@ -76,8 +75,25 @@ async def init_upload(
         storage_key=session.storage_key,
         part_size=session.part_size,
         part_count=session.part_count,
-        single=TicketOut(**asdict(single)) if single else None,
-        parts=[PartTicketOut(**asdict(part)) for part in parts],
+        single=(
+            TicketOut(
+                url=single.url,
+                method=single.method,
+                headers=single.headers,
+                expires_at=single.expires_at,
+            )
+            if single
+            else None
+        ),
+        parts=[
+            PartTicketOut(
+                part_number=part.part_number,
+                url=part.url,
+                method=part.method,
+                headers=part.headers,
+            )
+            for part in parts
+        ],
         expires_at=session.expires_at,
     )
 
