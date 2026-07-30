@@ -12,8 +12,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routers import jobs, media, timeline
-from src.settings.config import core_settings
+from src.api.routers import jobs, media, timeline, uploads
+from src.settings.config import core_settings, storage_settings
 
 logging.basicConfig(
     level=core_settings.log_level,
@@ -24,6 +24,7 @@ logger = logging.getLogger("takeflow.api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    storage_settings.require_secure_presign_secret(core_settings.debug)
     logger.info("%s API starting (debug=%s)", core_settings.name, core_settings.debug)
     yield
     logger.info("%s API shutting down", core_settings.name)
@@ -46,6 +47,7 @@ app.add_middleware(
 )
 
 # Everything under a versioned prefix.
+app.include_router(uploads.router, prefix="/api/v1")
 app.include_router(media.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(timeline.router, prefix="/api/v1")

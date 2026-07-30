@@ -62,7 +62,10 @@ class CoreSettings(BaseSettings):
 
     # Uploads
     data_dir: str = "/data"
-    max_upload_bytes: int = 2 * 1024 * 1024 * 1024  # 2 GiB
+    # Ceiling for a declared upload size. 3 hours of 1080p lands around 10-20 GiB,
+    # so this is generous by design; it is enforced before any byte moves and
+    # re-checked against storage afterwards.
+    max_upload_bytes: int = 32 * 1024 * 1024 * 1024  # 32 GiB
 
 
 class DBSettings(BaseSettings):
@@ -139,6 +142,9 @@ class LLMSettings(BaseSettings):
     similarity_threshold: float = 0.75
 
 
+_INSECURE_PRESIGN_SECRET = "dev-only-insecure-presign-secret"
+
+
 class StorageSettings(BaseSettings):
     model_config = SettingsConfigDict(**_CONFIG, env_prefix="storage_")
 
@@ -149,6 +155,46 @@ class StorageSettings(BaseSettings):
     s3_access_key: str | None = None
     s3_secret_key: str | None = None
     s3_region: str = "us-east-1"
+
+    # --- presigned direct upload ---
+    # TTL of an upload ticket. Long enough for a slow client to finish one part,
+    # short enough that a leaked URL expires quickly.
+    presign_ttl_seconds: int = 3600
+    # Signing key for the local adapter's presign parity. MUST be overridden in
+    # any deployment where the local adapter is reachable outside debug mode.
+    # Not validated here: this class is instantiated eagerly as a module-level
+    # singleton on import (including by tests), so a constructor-time check
+    # would break every import that doesn't already have a real secret. The
+    # check that matters — "are we actually about to serve traffic with the
+    # placeholder?" — belongs at process startup instead; see
+    # `require_secure_presign_secret` below, called from the API lifespan and
+    # worker entrypoints.
+    presign_secret: str = _INSECURE_PRESIGN_SECRET
+    # Public base URL the client can reach for local-adapter sink endpoints.
+    local_public_url: str = "http://localhost:8000"
+    # Abandoned INITIATED sessions are aborted after this long.
+    session_reap_after_seconds: int = 24 * 3600
+
+    def require_secure_presign_secret(self, debug: bool) -> None:
+        """
+        Refuse to run with the placeholder presign secret outside debug mode.
+
+        The local sink endpoint trusts this key to authenticate presigned
+        PUTs; shipping the default in a reachable deployment lets anyone
+        write to storage. Call this once at process startup (API lifespan,
+        worker main) — not at settings construction time.
+        """
+        if self.provider is not StorageProvider.LOCAL:
+            return
+        if self.presign_secret != _INSECURE_PRESIGN_SECRET:
+            return
+        if debug:
+            return
+        raise RuntimeError(
+            "storage_presign_secret must be set to a real secret when "
+            "STORAGE_PROVIDER=local and APP_DEBUG=false. Refusing to start "
+            "with the insecure default outside debug mode."
+        )
 
 
 class AnalysisSettings(BaseSettings):

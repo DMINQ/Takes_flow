@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from src.settings.config import core_settings, transcription_settings
+from src.settings.config import core_settings, storage_settings, transcription_settings
 from src.settings.providers import get_transcriber
 
 logging.basicConfig(
@@ -24,6 +24,7 @@ logger = logging.getLogger("takeflow.worker")
 
 
 async def main() -> None:
+    storage_settings.require_secure_presign_secret(core_settings.debug)
     logger.info("Worker starting (transcriber=%s)", transcription_settings.provider.value)
 
     # Preload the model once at startup (skip for remote provider).
