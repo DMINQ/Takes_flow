@@ -4,21 +4,27 @@ Worker entry point — `python -m src.worker.main`.
 Separate process from the API. It preloads heavy models once, then consumes
 analysis/export jobs from the broker (FastStream) and runs the pipelines.
 
-Step 4 fills in the FastStream subscribers + processors. For now this is a
-runnable skeleton: it warms the transcriber (so the model volume is populated)
-and idles, proving the worker service boots on the shared image.
+Step 4 wires the FastStream subscribers: one per stream (analysis/export),
+both delegating to `worker.processor.process_job_event`, which claims the job
+and runs it through the pipeline `Runner`. Delivery is at-least-once (Redis
+Streams + consumer group), and `process_job_event` never raises, so a message
+is acked once handled regardless of whether the job itself succeeded or failed.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 
+from faststream import FastStream
+from faststream.redis import RedisBroker
+
 from src.application.services.upload_service import UploadService
 from src.infrastructure.db import AsyncSessionLocal
 from src.infrastructure.repositories.media import SqlMediaRepository
 from src.infrastructure.repositories.upload_session import SqlUploadSessionRepository
-from src.settings.config import core_settings, storage_settings, transcription_settings
+from src.settings.config import broker_settings, core_settings, storage_settings, transcription_settings
 from src.settings.providers import get_storage, get_transcriber
+from src.worker.processor import process_job_event
 
 logging.basicConfig(
     level=core_settings.log_level,
@@ -61,6 +67,31 @@ async def _reap_stale_uploads_loop() -> None:
         await asyncio.sleep(_REAP_INTERVAL_SECONDS)
 
 
+def _build_broker() -> RedisBroker:
+    """One RedisBroker with a subscriber per stream, both routed to the same processor.
+
+    A shared consumer group means multiple worker replicas load-balance the
+    same stream instead of each replica processing every message.
+    """
+    broker = RedisBroker(broker_settings.url)
+
+    @broker.subscriber(
+        stream=broker_settings.analysis_stream,
+        group=broker_settings.consumer_group,
+    )
+    async def _on_analysis(payload: dict) -> None:
+        await process_job_event(payload)
+
+    @broker.subscriber(
+        stream=broker_settings.export_stream,
+        group=broker_settings.consumer_group,
+    )
+    async def _on_export(payload: dict) -> None:
+        await process_job_event(payload)
+
+    return broker
+
+
 async def main() -> None:
     storage_settings.require_secure_presign_secret(core_settings.debug)
     logger.info("Worker starting (transcriber=%s)", transcription_settings.provider.value)
@@ -75,11 +106,16 @@ async def main() -> None:
 
     reap_task = asyncio.create_task(_reap_stale_uploads_loop())
 
-    # TODO(step 4): start FastStream subscribers for analysis/export streams.
-    logger.info("Worker idle — awaiting job subscribers (wired in step 4).")
-    stop = asyncio.Event()
+    broker = _build_broker()
+    app = FastStream(broker)
+    logger.info(
+        "Worker subscribing to '%s' / '%s' (group=%s)",
+        broker_settings.analysis_stream,
+        broker_settings.export_stream,
+        broker_settings.consumer_group,
+    )
     try:
-        await stop.wait()
+        await app.run()
     finally:
         reap_task.cancel()
 

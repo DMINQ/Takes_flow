@@ -292,9 +292,9 @@ CUDA OOM отдаёт HTTP `507` с подсказкой (меньше моде�
 
 **MVP (продукт)**
 - **Step 1 ✅** Scaffold: архитектура, uv, Docker, DB/миграции, порты, upload + transcribe
-- **Step 2** Репозитории + jobs/timeline роутеры
-- **Step 3** Outbox repository + relay publish + FastStream consumer + JobService
-- **Step 4** Pipeline core (BasePlugin/runner/registry) + Ingest/Transcribe end-to-end
+- **Step 2 ✅** Репозитории + jobs/timeline роутеры
+- **Step 3 ✅** Outbox repository + relay publish
+- **Step 4 ✅** Pipeline core (BasePlugin/runner/registry) + Ingest/Transcribe/Diarize end-to-end, FastStream consumer в worker
 - **Step 5** Silence-детекция (DSP) → регионы `auto_cut`
 - **Step 6** Bad-take детекция на fuzzy, без LLM → регионы `review`
 - **Step 7** Экспорт: FFmpeg concat + pedalboard мастеринг (noise → EQ → compressor → LUFS)
