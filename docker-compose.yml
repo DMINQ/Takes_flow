@@ -1,20 +1,6 @@
-# TakeFlow — full stack.
-#
-#   docker compose up --build
-#   API docs: http://localhost:8000/docs
-#
-# api / worker / relay all run the SAME image (built once), differing only by
-# `command`. Postgres + Redis back the transactional outbox → FastStream flow.
-
-# Only the `api` service builds the image; worker/relay reuse the built tag to
-# avoid three services racing to export the same tag under `--build`.
 x-backend-image: &backend-image
   image: takeflow-backend:latest
 
-# Every app setting (DB_*, STORAGE_*, TRANSCRIBER_*, ...) is read straight
-# from the root .env file (copy from .env.example) via `env_file:` on each
-# service below. Nothing is re-declared here — pydantic-settings reads the
-# same names the app already defines defaults for in src/settings/config.py.
 x-backend-envfile: &backend-envfile
   env_file: .env
 
@@ -43,14 +29,8 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # S3-compatible target for STORAGE_PROVIDER=s3 so the S3Storage adapter
-  # (presigned multipart via aioboto3) is exercised locally, not only in
-  # prod. Not required when STORAGE_PROVIDER=local (the default).
   minio:
     image: minio/minio:RELEASE.2025-01-20T14-49-07Z
-    # No env_file here: this container only needs its own two credential
-    # vars, not the whole app config. ${VAR} is compose's own substitution
-    # from the root .env, not a container env var passed through.
     environment:
       MINIO_ROOT_USER: ${STORAGE_S3_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${STORAGE_S3_SECRET_KEY}
@@ -67,16 +47,11 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # One-shot: creates the bucket the app expects, then exits. `mc` ships in
-  # the minio/mc image; there is no long-running server here.
   minio-init:
     image: minio/mc:RELEASE.2025-01-17T23-25-50Z
     depends_on:
       minio: {condition: service_healthy}
     entrypoint: ["/bin/sh", "-c"]
-    # ${VAR} here is compose's own substitution from the root .env, not a
-    # container env var — this one-shot has no env_file, it just needs the
-    # values inline in its command.
     command:
       - >
         mc alias set local http://minio:9000
@@ -86,12 +61,10 @@ services:
 
   api:
     <<: [*backend-image, *backend-envfile]
-    build:                 # the single build; worker/relay reuse this image tag
+    build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: deploy/Dockerfile
     environment:
-      # Container-network addresses — always these values inside compose,
-      # regardless of what a developer's .env has for running outside it.
       DB_HOST: db
       BROKER_URL: redis://redis:6379
       RUN_MIGRATIONS: "1"  # the api owns schema migration
@@ -111,10 +84,10 @@ services:
     environment:
       DB_HOST: db
       BROKER_URL: redis://redis:6379
-      RUN_MIGRATIONS: "0"  # api already migrated
+      RUN_MIGRATIONS: "0"
     volumes:
       - takeflow-data:/data
-      - takeflow-models:/models   # shares the Whisper weights volume
+      - takeflow-models:/models
     depends_on:
       db: {condition: service_healthy}
       redis: {condition: service_healthy}

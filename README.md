@@ -34,7 +34,7 @@ Hexagonal (ports & adapters). Зависимости внутрь: `api`/`worker
 ```
 backend/
 ├── pyproject.toml / uv.lock       # deps через uv (canonical)
-├── Dockerfile                     # multi-stage: uv builder → slim runtime
+├── deploy/Dockerfile              # multi-stage: uv builder → slim runtime
 ├── deploy/entrypoint.sh           # alembic upgrade head → exec CMD
 ├── alembic/                       # async migrations
 └── src/

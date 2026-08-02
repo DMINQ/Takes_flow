@@ -1,10 +1,3 @@
-"""
-Provider factories — resolve settings into concrete adapters.
-
-This is the one place that knows which implementation backs each port. Switching
-local↔remote, fs↔s3, stub↔pyannote is a settings change here; the rest of the app
-depends only on the port Protocols. Adapters are cached (built once per process).
-"""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -32,7 +25,6 @@ def get_transcriber() -> TranscriberPort:
         from src.infrastructure.transcribers.local import LocalTranscriber
 
         return LocalTranscriber(transcription_settings)
-    # provider == REMOTE
     from src.infrastructure.transcribers.remote import RemoteTranscriber
 
     return RemoteTranscriber(transcription_settings)
@@ -42,11 +34,9 @@ def get_transcriber() -> TranscriberPort:
 def get_diarizer() -> DiarizerPort:
     provider = diarization_settings.provider
     if provider is DiarizerProvider.PYANNOTE:
-        # Imported lazily so the heavy dependency isn't required unless enabled.
         from src.infrastructure.diarizers.pyannote import PyannoteDiarizer
 
         return PyannoteDiarizer(diarization_settings)
-    # OFF and STUB both use the single-speaker stub for now.
     from src.infrastructure.diarizers.stub import StubDiarizer
 
     return StubDiarizer()
@@ -65,8 +55,6 @@ def get_storage() -> StoragePort:
 
 @lru_cache
 def get_audio_engine() -> AudioEnginePort:
-    # Single implementation for now (ffmpeg + pedalboard); kept behind the factory
-    # so a remote/worker-pool variant can be swapped in later.
     from src.infrastructure.audio.engine import FfmpegPedalboardEngine
 
     return FfmpegPedalboardEngine()

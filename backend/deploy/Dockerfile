@@ -6,6 +6,9 @@
 #
 # The same image runs the API, the worker, and the outbox relay — only the
 # container `command` differs (see docker-compose.yml).
+#
+# Build context is ./backend (see docker-compose.yml `build.context`); all
+# COPY paths below are relative to that context, not to this Dockerfile.
 # =============================================================================
 
 # ---- builder ---------------------------------------------------------------
