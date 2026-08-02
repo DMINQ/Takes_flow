@@ -301,7 +301,11 @@ CUDA OOM отдаёт HTTP `507` с подсказкой (меньше моде�
 - **Step 6 ✅** Bad-take детекция на fuzzy (thefuzz), без LLM → регионы `review`.
   Дубли никогда не режутся автоматически — все кандидаты помечаются `REVIEW/ALTERNATE_TAKE`
   с общим `take_group`, финальное решение (какой дубль оставить) — за автором в UI
-- **Step 7** Экспорт: FFmpeg concat + pedalboard мастеринг (noise → EQ → compressor → LUFS)
+- **Step 7 ✅** Экспорт: `JobKind.EXPORT` пайплайн (Ingest → LoadTimeline → AssembleExport → Master → PersistExport).
+  Финальные ranges = KEEP-регионы минус дубли, которые автор явно отметил на вырезание
+  (`params.export_selection`, формат `"cut:<start>:<end>"`); мастеринг через pedalboard
+  (noise gate → highpass → EQ → compressor) + pyloudnorm (LUFS-нормализация).
+  Готовый файл отдаётся presigned-ссылкой через `GET /media/{id}/export`
 
 Шаг 6 намеренно без LLM: fuzzy даёт baseline для сравнения и служит fallback'ом.
 

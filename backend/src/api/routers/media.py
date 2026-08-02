@@ -18,9 +18,10 @@ from anyio import to_thread
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.api.deps import media_service, storage_provider, transcriber_provider
-from src.api.schemas.media import TranscriptionResponse, WordOut
+from src.api.schemas.media import ExportDownloadResponse, TranscriptionResponse, WordOut
 from src.application.services.media_service import MediaService
 from src.domain.errors import (
+    MediaNotFoundError,
     OutOfMemoryError,
     StorageError,
     TranscriptionError,
@@ -79,3 +80,25 @@ async def transcribe_media(
             for w in words
         ],
     )
+
+
+@router.get(
+    "/{media_id}/export",
+    response_model=ExportDownloadResponse,
+    summary="Get a presigned download URL for the finished export",
+)
+async def get_export_download(
+    media_id: str,
+    service: MediaService = Depends(media_service),
+) -> ExportDownloadResponse:
+    """Mint a short-lived GET URL for the media's most recent EXPORT artifact.
+
+    404s if no EXPORT job has completed for this media yet — the client should
+    poll GET /jobs/{job_id} for the export job's status first.
+    """
+    try:
+        ticket = await service.get_export_download(media_id)
+    except MediaNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return ExportDownloadResponse(url=ticket.url, method=ticket.method, expires_at=ticket.expires_at)

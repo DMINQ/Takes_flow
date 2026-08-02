@@ -70,6 +70,13 @@ class S3Storage:
         headers = {"Content-Type": content_type} if content_type else {}
         return UploadTicket(url=url, method="PUT", headers=headers, expires_at=ticket_expiry(expires_in))
 
+    async def presign_get(self, key: str, *, expires_in: int) -> UploadTicket:
+        async with self._client() as client:
+            url = await client.generate_presigned_url(
+                "get_object", Params={"Bucket": self._bucket, "Key": key}, ExpiresIn=expires_in
+            )
+        return UploadTicket(url=url, method="GET", expires_at=ticket_expiry(expires_in))
+
     # --- multipart upload ------------------------------------------------------------
     async def create_multipart(self, key: str, *, content_type: str | None) -> str:
         params: dict[str, object] = {"Bucket": self._bucket, "Key": key}

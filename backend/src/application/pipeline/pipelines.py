@@ -13,11 +13,15 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.pipeline.plugin import BasePlugin
+from src.application.pipeline.plugins.assemble_export import AssembleExportPlugin
 from src.application.pipeline.plugins.bad_take import BadTakePlugin
 from src.application.pipeline.plugins.cut_silence import CutSilencePlugin
 from src.application.pipeline.plugins.denoise import DenoisePlugin
 from src.application.pipeline.plugins.diarize import DiarizePlugin
 from src.application.pipeline.plugins.ingest import IngestPlugin
+from src.application.pipeline.plugins.load_timeline import LoadTimelinePlugin
+from src.application.pipeline.plugins.master import MasterPlugin
+from src.application.pipeline.plugins.persist_export import PersistExportPlugin
 from src.application.pipeline.plugins.persist_timeline import PersistTimelinePlugin
 from src.application.pipeline.plugins.persist_transcript import PersistTranscriptPlugin
 from src.application.pipeline.plugins.transcribe import TranscribePlugin
@@ -64,6 +68,29 @@ def build_analysis_plugins(session: AsyncSession) -> list[BasePlugin]:
     ]
 
 
+def build_export_plugins(session: AsyncSession) -> list[BasePlugin]:
+    """Ingest -> LoadTimeline -> AssembleExport -> Master -> PersistExport.
+
+    Reuses the same IngestPlugin as analysis (materialize + probe duration)
+    but skips denoise/diarize/transcribe entirely — export only needs the
+    region map an ANALYSIS job already produced (LoadTimelinePlugin) plus the
+    user's take choices (PipelineContext.export_selection) to know what to
+    assemble and master.
+    """
+    storage = get_storage()
+    media_repo = SqlMediaRepository(session)
+    artifact_repo = SqlArtifactRepository(session)
+    audio_engine = get_audio_engine()
+    return [
+        IngestPlugin(storage, audio_engine, media_repo, _work_dir()),
+        LoadTimelinePlugin(SqlTimelineRepository(session)),
+        AssembleExportPlugin(audio_engine),
+        MasterPlugin(audio_engine),
+        PersistExportPlugin(storage, artifact_repo),
+    ]
+
+
 def register_pipelines(session: AsyncSession) -> None:
     """Register plugin-list factories bound to `session`. Call once per job run."""
     registry.register(JobKind.ANALYSIS, lambda: build_analysis_plugins(session))
+    registry.register(JobKind.EXPORT, lambda: build_export_plugins(session))

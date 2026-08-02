@@ -26,6 +26,8 @@ dependencies = [
     "ffmpeg-python==0.2.0",
     "pedalboard==0.9.16",
     "pydub==0.25.1",
+    "pyloudnorm==0.1.1",      # BS.1770-4 LUFS metering for export mastering (Step 7)
+    "soundfile==0.12.1",      # reads/writes wav as numpy arrays for pedalboard/pyloudnorm
     # --- NLP: bad-take / duplicate detection ---
     "thefuzz==0.22.1",
     # --- Misc ---

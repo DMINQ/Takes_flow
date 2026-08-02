@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 
 from src.api.deps import storage_provider, upload_service
 from src.api.schemas.uploads import (
@@ -196,3 +197,31 @@ async def local_sink(
     # Deterministic stand-in for an S3 ETag; the client echoes it back on complete.
     etag = f"{part or 0:05d}-{size:d}"
     return {"etag": etag}
+
+
+@router.get(
+    "/source/{key:path}",
+    include_in_schema=False,
+    summary="Local storage source for presigned GETs (dev only)",
+)
+async def local_source(
+    key: str = Path(...),
+    expires: int = Query(...),
+    signature: str = Query(...),
+    storage: StoragePort = Depends(storage_provider),
+) -> StreamingResponse:
+    """Serve a signed GET, mirroring what an S3 presigned download would do."""
+    verify = getattr(storage, "verify", None)
+    read_object = getattr(storage, "read_object", None)
+    if verify is None or read_object is None:
+        # S3 is configured; this endpoint must not be used as a bypass.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Not found.")
+
+    if not verify(key, expires, signature, None):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Invalid or expired signature.")
+
+    stored = await storage.stat(key)
+    if stored is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Object '{key}' not found.")
+
+    return StreamingResponse(read_object(key), media_type="application/octet-stream")

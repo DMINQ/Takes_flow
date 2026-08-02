@@ -1,6 +1,8 @@
 """HTTP request/response schemas for media endpoints — the API contract."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 # Upload contracts live in api/schemas/uploads.py — clients upload directly to
@@ -21,3 +23,9 @@ class TranscriptionResponse(BaseModel):
     language_probability: float
     duration: float
     words: list[WordOut]
+
+
+class ExportDownloadResponse(BaseModel):
+    url: str
+    method: str = "GET"
+    expires_at: datetime | None = None

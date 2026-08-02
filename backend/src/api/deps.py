@@ -16,6 +16,7 @@ from src.application.services.timeline_service import TimelineService
 from src.application.services.upload_service import UploadService
 from src.domain.ports.services import StoragePort, TranscriberPort
 from src.infrastructure.db import get_db
+from src.infrastructure.repositories.artifact import SqlArtifactRepository
 from src.infrastructure.repositories.job import SqlJobRepository
 from src.infrastructure.repositories.media import SqlMediaRepository
 from src.infrastructure.repositories.outbox import SqlOutboxRepository
@@ -40,7 +41,7 @@ def media_service(
     session: AsyncSession = Depends(get_db),
     storage: StoragePort = Depends(storage_provider),
 ) -> MediaService:
-    return MediaService(session, SqlMediaRepository(session), storage)
+    return MediaService(session, SqlMediaRepository(session), storage, SqlArtifactRepository(session))
 
 
 def job_service(session: AsyncSession = Depends(get_db)) -> JobService:

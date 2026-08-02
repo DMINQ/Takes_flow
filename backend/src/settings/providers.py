@@ -14,6 +14,7 @@ from src.settings.config import (
     TranscriberProvider,
     core_settings,
     diarization_settings,
+    mastering_settings,
     storage_settings,
     transcription_settings,
 )
@@ -57,4 +58,4 @@ def get_storage() -> StoragePort:
 def get_audio_engine() -> AudioEnginePort:
     from src.infrastructure.audio.engine import FfmpegPedalboardEngine
 
-    return FfmpegPedalboardEngine()
+    return FfmpegPedalboardEngine(mastering_settings)

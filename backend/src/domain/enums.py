@@ -84,3 +84,4 @@ class ArtifactKind(str, Enum):
     DIARIZATION = "diarization"
     CUT_AUDIO = "cut_audio"
     TRANSCRIPT = "transcript"
+    EXPORT = "export"

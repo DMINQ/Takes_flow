@@ -87,6 +87,11 @@ class StoragePort(Protocol):
         """Mint a short-lived URL the client PUTs the whole object to."""
         ...
 
+    # --- direct download (e.g. the finished export) ---
+    async def presign_get(self, key: str, *, expires_in: int) -> UploadTicket:
+        """Mint a short-lived URL the client GETs the object from."""
+        ...
+
     # --- multipart upload (large files: parallel parts, per-part retry) ---
     async def create_multipart(self, key: str, *, content_type: str | None) -> str:
         """Begin a multipart upload; returns the storage-assigned upload id."""

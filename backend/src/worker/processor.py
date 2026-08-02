@@ -73,13 +73,15 @@ async def process_job_event(payload: dict) -> None:
             await session.commit()
             return
 
+        params = payload.get("params") or {}
         context = PipelineContext(
             job_id=job_id,
             project_id=media.project_id,
             media_id=media_id,
             input_path="",
             original_filename=media.filename,
-            language=(payload.get("params") or {}).get("language"),
+            language=params.get("language"),
+            export_selection=params.get("export_selection") or [],
         )
 
         runner = Runner(plugins, job_repo)

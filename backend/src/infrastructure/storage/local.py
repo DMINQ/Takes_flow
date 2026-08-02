@@ -56,6 +56,11 @@ class LocalStorage:
             query["part"] = part
         return f"{self._base_url}/api/v1/uploads/sink/{quote(key)}?{urlencode(query)}"
 
+    def _download_ticket_url(self, key: str, expires_in: int) -> str:
+        expires = int(time.time()) + expires_in
+        query = {"expires": expires, "signature": self._sign(key, expires, None)}
+        return f"{self._base_url}/api/v1/uploads/source/{quote(key)}?{urlencode(query)}"
+
     # --- key/path mapping ----------------------------------------------------------
     def _path_for(self, key: str) -> Path:
         """
@@ -83,6 +88,14 @@ class LocalStorage:
             url=self._ticket_url(key, expires_in),
             method="PUT",
             headers=headers,
+            expires_at=ticket_expiry(expires_in),
+        )
+
+    # --- direct download -------------------------------------------------------------
+    async def presign_get(self, key: str, *, expires_in: int) -> UploadTicket:
+        return UploadTicket(
+            url=self._download_ticket_url(key, expires_in),
+            method="GET",
             expires_at=ticket_expiry(expires_in),
         )
 
@@ -163,6 +176,15 @@ class LocalStorage:
     async def save_stream(self, key: str, chunks: AsyncIterator[bytes]) -> StoredObject:
         size = await self.write_object(key, chunks)
         return StoredObject(key=key, size_bytes=size)
+
+    async def read_object(self, key: str, *, chunk_size: int = 1024 * 1024) -> AsyncIterator[bytes]:
+        """Stream a stored object back — used by the local download-sink endpoint."""
+        path = self._path_for(key)
+        if not path.is_file():
+            raise StorageError(f"Object '{key}' not found.")
+        with path.open("rb") as handle:
+            while chunk := handle.read(chunk_size):
+                yield chunk
 
     async def delete(self, key: str) -> None:
         self._path_for(key).unlink(missing_ok=True)

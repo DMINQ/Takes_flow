@@ -30,6 +30,12 @@ class TestPresign:
         assert ticket.url.startswith("http://testserver/api/v1/uploads/sink/")
         assert "signature=" in ticket.url and "expires=" in ticket.url
 
+    async def test_download_ticket_is_signed_and_verifiable(self, storage):
+        ticket = await storage.presign_get("projects/p1/artifacts/m1/export.wav", expires_in=60)
+        assert ticket.method == "GET"
+        assert ticket.url.startswith("http://testserver/api/v1/uploads/source/")
+        assert "signature=" in ticket.url and "expires=" in ticket.url
+
     async def test_tampered_key_fails_verification(self, storage):
         expires = int(time.time()) + 60
         signature = storage._sign("uploads/a/f.wav", expires, None)
@@ -118,3 +124,17 @@ class TestMaterialize:
     async def test_missing_object_raises(self, storage, tmp_path):
         with pytest.raises(StorageError):
             await storage.materialize("uploads/x/nope.wav", tmp_path)
+
+
+class TestReadObject:
+    async def test_streams_the_full_object_back(self, storage):
+        await storage.write_object("uploads/x/r.wav", _chunks(b"RIFF", b"data"))
+        collected = b""
+        async for chunk in storage.read_object("uploads/x/r.wav"):
+            collected += chunk
+        assert collected == b"RIFFdata"
+
+    async def test_missing_object_raises(self, storage):
+        with pytest.raises(StorageError):
+            async for _ in storage.read_object("uploads/x/missing.wav"):
+                pass

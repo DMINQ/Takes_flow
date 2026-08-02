@@ -184,6 +184,22 @@ class AnalysisSettings(BaseSettings):
     bad_take_min_words: int = 3
 
 
+class MasteringSettings(BaseSettings):
+    """Export mastering chain: noise gate -> highpass -> EQ -> compressor -> LUFS."""
+
+    model_config = SettingsConfigDict(**_CONFIG, env_prefix="mastering_")
+
+    noise_gate_threshold_db: float = -40.0
+    highpass_hz: float = 80.0
+    eq_frequency_hz: float = 3000.0
+    eq_gain_db: float = 2.0
+    eq_q: float = 0.7
+    compressor_threshold_db: float = -18.0
+    compressor_ratio: float = 3.0
+    # -16 LUFS is the common streaming/podcast target (vs -23 LUFS broadcast).
+    target_lufs: float = -16.0
+
+
 core_settings = CoreSettings()
 db_settings = DBSettings()
 broker_settings = BrokerSettings()
@@ -193,3 +209,4 @@ diarization_settings = DiarizationSettings()
 llm_settings = LLMSettings()
 storage_settings = StorageSettings()
 analysis_settings = AnalysisSettings()
+mastering_settings = MasteringSettings()

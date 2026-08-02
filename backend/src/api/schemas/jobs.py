@@ -9,7 +9,15 @@ from src.domain.enums import JobKind, JobStatus
 class CreateJobRequest(BaseModel):
     media_id: str = Field(..., description="Id returned from /media/upload.")
     kind: JobKind = Field(default=JobKind.ANALYSIS, description="Which pipeline to run.")
-    params: dict = Field(default_factory=dict, description="Optional pipeline parameters.")
+    params: dict = Field(
+        default_factory=dict,
+        description=(
+            "Optional pipeline parameters. For kind=export, "
+            "params.export_selection is a list of 'cut:<start>:<end>' strings "
+            "naming which REVIEW (duplicate-take) regions to drop; every other "
+            "KEEP region is exported unchanged."
+        ),
+    )
 
 
 class JobResponse(BaseModel):
