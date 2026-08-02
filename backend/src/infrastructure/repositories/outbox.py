@@ -24,11 +24,19 @@ class SqlOutboxRepository:
         self._s.add(OutboxModel(stream=stream, payload=payload))
         await self._s.flush()
 
-    async def fetch_pending(self, limit: int) -> list[dict]:
-        """Lock-and-return pending events so multiple relays don't double-publish."""
+    async def fetch_pending(self, limit: int, max_attempts: int) -> list[dict]:
+        """Lock-and-return pending events so multiple relays don't double-publish.
+
+        Excludes events that already exhausted `max_attempts` — those are
+        left `failed` and require manual/operator intervention, not endless
+        relay retries.
+        """
         stmt = (
             select(OutboxModel)
-            .where(OutboxModel.status == OutboxStatus.PENDING.value)
+            .where(
+                OutboxModel.status == OutboxStatus.PENDING.value,
+                OutboxModel.attempts < max_attempts,
+            )
             .order_by(OutboxModel.created_at)
             .limit(limit)
             .with_for_update(skip_locked=True)
@@ -46,10 +54,18 @@ class SqlOutboxRepository:
         row.status = OutboxStatus.PUBLISHED.value
         await self._s.flush()
 
-    async def mark_failed(self, event_id: str, attempts: int) -> None:
+    async def mark_failed(self, event_id: str, attempts: int, max_attempts: int) -> None:
+        """Record a failed publish attempt.
+
+        Stays `pending` while retries remain (`attempts < max_attempts`) so
+        the next `fetch_pending` picks it up again; becomes terminally
+        `failed` once attempts are exhausted.
+        """
         row = await self._s.get(OutboxModel, event_id)
         if row is None:
             return
         row.attempts = attempts
-        row.status = OutboxStatus.FAILED.value
+        row.status = (
+            OutboxStatus.PENDING.value if attempts < max_attempts else OutboxStatus.FAILED.value
+        )
         await self._s.flush()

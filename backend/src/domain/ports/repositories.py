@@ -54,8 +54,19 @@ class OutboxRepository(Protocol):
     """Transactional outbox: events written in the same tx as the job."""
 
     async def add(self, stream: str, payload: dict) -> None: ...
-    async def fetch_pending(self, limit: int) -> list[dict]:
-        """Return pending events (each dict includes its id, stream, payload)."""
+    async def fetch_pending(self, limit: int, max_attempts: int) -> list[dict]:
+        """Return pending events (each dict includes its id, stream, payload).
+
+        Events with `attempts >= max_attempts` are excluded so a poisoned
+        event can't block the relay forever once it's exhausted retries.
+        """
         ...
     async def mark_published(self, event_id: str) -> None: ...
-    async def mark_failed(self, event_id: str, attempts: int) -> None: ...
+    async def mark_failed(self, event_id: str, attempts: int, max_attempts: int) -> None:
+        """Record a failed publish attempt.
+
+        Stays `pending` (retryable on the next poll) while `attempts <
+        max_attempts`; becomes terminally `failed` once attempts are
+        exhausted, so `fetch_pending` stops returning it.
+        """
+        ...
