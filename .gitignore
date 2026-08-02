@@ -26,9 +26,9 @@ backend/models/
 .idea/
 .vscode/
 *.swp
-# Unrelated JS toolchain that ended up under .kilo/ (some CLI install side
-# effect) — not part of this project, never intended to be committed.
-.kilo/node_modules/
+# Kilo — local agent config/tooling, not part of project source
+.kilo/
+kilo.json
 
 # Agent-generated scratch docs that were never requested — README is the
 # single source of truth for this project, not a second roadmap doc.
