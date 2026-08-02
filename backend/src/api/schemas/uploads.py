@@ -20,6 +20,12 @@ class UploadInitRequest(BaseModel):
     filename: str = Field(..., max_length=512, description="Used for the extension check.")
     size_bytes: int = Field(..., gt=0, description="Exact byte size; re-verified against storage.")
     content_type: str | None = Field(default=None, max_length=128)
+    project_id: str | None = Field(
+        default=None,
+        max_length=32,
+        description="Group this upload with an existing project (e.g. another take). "
+        "Omit to start a new project.",
+    )
 
 
 class PartTicketOut(BaseModel):
@@ -46,6 +52,7 @@ class UploadInitResponse(BaseModel):
     """
 
     session_id: str
+    project_id: str
     mode: UploadMode
     storage_key: str
     part_size: int | None = None
@@ -68,6 +75,7 @@ class UploadCompleteRequest(BaseModel):
 
 class MediaOut(BaseModel):
     file_id: str
+    project_id: str
     filename: str
     size_bytes: int
     content_type: str | None = None

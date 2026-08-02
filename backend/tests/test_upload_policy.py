@@ -88,8 +88,16 @@ class TestSniff:
 
 
 class TestStorageKey:
-    def test_is_date_partitioned(self):
-        key = policy.build_storage_key("abc123", ".wav")
-        assert key.startswith("uploads/")
+    def test_is_project_scoped_and_date_partitioned(self):
+        key = policy.build_storage_key("proj1", "abc123", ".wav")
+        assert key.startswith("projects/proj1/uploads/")
         assert key.endswith("abc123.wav")
-        assert key.count("/") == 4  # uploads/YYYY/MM/DD/file
+        assert key.count("/") == 6  # projects/<id>/uploads/YYYY/MM/DD/file
+
+
+class TestArtifactKey:
+    def test_is_project_and_media_scoped(self):
+        from src.domain.enums import ArtifactKind
+
+        key = policy.build_artifact_key("proj1", "media1", ArtifactKind.TRANSCRIPT, ".json")
+        assert key == "projects/proj1/artifacts/media1/transcript.json"

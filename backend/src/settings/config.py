@@ -179,6 +179,9 @@ class AnalysisSettings(BaseSettings):
     silence_min_duration: float = 0.6
     silence_threshold_db: float = -35.0
     silence_keep_padding: float = 0.05
+    # Bad-take (duplicate phrase) detection — fuzzy text match, no LLM.
+    bad_take_similarity_threshold: int = 85
+    bad_take_min_words: int = 3
 
 
 core_settings = CoreSettings()

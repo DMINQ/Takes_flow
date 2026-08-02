@@ -69,3 +69,18 @@ class UploadMode(str, Enum):
 
     SINGLE = "single"
     MULTIPART = "multipart"
+
+
+class ArtifactKind(str, Enum):
+    """
+    A derived file the pipeline persists back to storage, keyed by media.
+
+    Every stage's output becomes a durable, re-fetchable object instead of a
+    scratch temp file, so later stages (or a re-run of just one stage) never
+    have to redo upstream work.
+    """
+
+    DENOISED_AUDIO = "denoised_audio"
+    DIARIZATION = "diarization"
+    CUT_AUDIO = "cut_audio"
+    TRANSCRIPT = "transcript"

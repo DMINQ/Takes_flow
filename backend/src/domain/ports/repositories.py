@@ -8,14 +8,33 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from src.domain.entities import Job, Media, TimelineRegion, UploadSession
-from src.domain.enums import JobStatus, UploadStatus
+from src.domain.entities import Artifact, Job, Media, Project, TimelineRegion, UploadSession
+from src.domain.enums import ArtifactKind, JobStatus, UploadStatus
+
+
+@runtime_checkable
+class ProjectRepository(Protocol):
+    async def add(self, project: Project) -> Project: ...
+    async def get(self, project_id: str) -> Project | None: ...
+    async def get_or_create(self, project_id: str, name: str) -> Project:
+        """Idempotently ensure a project row exists (uploads reference it eagerly)."""
+        ...
 
 
 @runtime_checkable
 class MediaRepository(Protocol):
     async def add(self, media: Media) -> Media: ...
     async def get(self, media_id: str) -> Media | None: ...
+
+
+@runtime_checkable
+class ArtifactRepository(Protocol):
+    """Tracks derived, storage-persisted outputs of each pipeline stage."""
+
+    async def add(self, artifact: Artifact) -> Artifact: ...
+    async def get(self, media_id: str, kind: ArtifactKind) -> Artifact | None:
+        """Latest artifact of `kind` for `media_id`, or None if the stage never ran."""
+        ...
 
 
 @runtime_checkable

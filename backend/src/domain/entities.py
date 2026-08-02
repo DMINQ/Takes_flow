@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from src.domain.enums import (
+    ArtifactKind,
     CutReason,
     JobKind,
     JobStatus,
@@ -17,6 +18,21 @@ from src.domain.enums import (
     UploadMode,
     UploadStatus,
 )
+
+
+@dataclass(slots=True)
+class Project:
+    """
+    Groups the media that belong to one editing job (e.g. multiple takes of the
+    same recording session).
+
+    Every Media row belongs to exactly one Project; the project id is what
+    namespaces derived artifacts in storage (see Artifact / build_artifact_key).
+    """
+
+    id: str
+    name: str
+    created_at: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -31,6 +47,7 @@ class Media:
     """
 
     id: str
+    project_id: str
     filename: str
     storage_key: str
     size_bytes: int
@@ -82,6 +99,7 @@ class UploadSession:
     """
 
     id: str
+    project_id: str
     storage_key: str
     filename: str
     declared_size: int
@@ -127,6 +145,21 @@ class Speaker:
 
 
 @dataclass(slots=True)
+class SpeakerTurn:
+    """
+    One contiguous span where a single speaker is talking.
+
+    This is the diarizer's real unit of output — a Speaker is just the label
+    a turn points at. Turns are also the source of truth for cutting silence:
+    the gaps between them (and before/after the first/last) are non-speech.
+    """
+
+    start: float
+    end: float
+    speaker_id: str
+
+
+@dataclass(slots=True)
 class TimelineRegion:
     """One contiguous span on the timeline with a keep/cut/review classification."""
 
@@ -150,4 +183,24 @@ class Job:
     status: JobStatus = JobStatus.PENDING
     progress: float = 0.0
     error: str | None = None
+    created_at: datetime | None = None
+
+
+@dataclass(slots=True)
+class Artifact:
+    """
+    A derived file a pipeline stage persisted to storage, keyed by media+kind.
+
+    Storing this row (not just the object) is what makes a stage skippable on
+    re-run: the runner can check for an existing Artifact before redoing work
+    that already produced one.
+    """
+
+    id: str
+    media_id: str
+    job_id: str
+    kind: ArtifactKind
+    storage_key: str
+    content_type: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
     created_at: datetime | None = None

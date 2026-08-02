@@ -13,15 +13,20 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.pipeline.plugin import BasePlugin
+from src.application.pipeline.plugins.bad_take import BadTakePlugin
+from src.application.pipeline.plugins.cut_silence import CutSilencePlugin
+from src.application.pipeline.plugins.denoise import DenoisePlugin
 from src.application.pipeline.plugins.diarize import DiarizePlugin
 from src.application.pipeline.plugins.ingest import IngestPlugin
 from src.application.pipeline.plugins.persist_timeline import PersistTimelinePlugin
+from src.application.pipeline.plugins.persist_transcript import PersistTranscriptPlugin
 from src.application.pipeline.plugins.transcribe import TranscribePlugin
 from src.application.pipeline.registry import registry
 from src.domain.enums import JobKind
+from src.infrastructure.repositories.artifact import SqlArtifactRepository
 from src.infrastructure.repositories.media import SqlMediaRepository
 from src.infrastructure.repositories.timeline import SqlTimelineRepository
-from src.settings.config import core_settings
+from src.settings.config import analysis_settings, core_settings
 from src.settings.providers import get_audio_engine, get_diarizer, get_storage, get_transcriber
 
 
@@ -33,16 +38,28 @@ def _work_dir() -> Path:
 
 
 def build_analysis_plugins(session: AsyncSession) -> list[BasePlugin]:
-    """Ingest -> Transcribe -> Diarize -> PersistTimeline.
+    """Ingest -> Denoise -> Diarize -> CutSilence -> Transcribe -> BadTake -> PersistTranscript -> PersistTimeline.
 
-    Silence/bad-take detection (Step 5/6) insert between Diarize and
-    PersistTimeline without changing this list's shape.
+    Diarization runs before silence-cutting because speech turns are the
+    source of truth for what counts as non-speech (see
+    `application.pipeline.silence`); transcription then only sees the audio
+    that survived the cut, avoiding a second VAD pass. BadTakePlugin runs
+    after transcription (it needs `context.words`) and only adds REVIEW
+    regions on top of what CutSilence already built — it never removes or
+    reclassifies a KEEP/AUTO_CUT region, so ordering with PersistTimeline is
+    the only constraint (bad-take must run before it).
     """
+    storage = get_storage()
     media_repo = SqlMediaRepository(session)
+    artifact_repo = SqlArtifactRepository(session)
     return [
-        IngestPlugin(get_storage(), get_audio_engine(), media_repo, _work_dir()),
+        IngestPlugin(storage, get_audio_engine(), media_repo, _work_dir()),
+        DenoisePlugin(get_audio_engine(), storage, artifact_repo),
+        DiarizePlugin(get_diarizer(), storage, artifact_repo),
+        CutSilencePlugin(get_audio_engine(), storage, artifact_repo, analysis_settings),
         TranscribePlugin(get_transcriber()),
-        DiarizePlugin(get_diarizer()),
+        BadTakePlugin(analysis_settings),
+        PersistTranscriptPlugin(storage, artifact_repo),
         PersistTimelinePlugin(SqlTimelineRepository(session)),
     ]
 

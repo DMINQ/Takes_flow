@@ -19,6 +19,7 @@ from src.infrastructure.db import get_db
 from src.infrastructure.repositories.job import SqlJobRepository
 from src.infrastructure.repositories.media import SqlMediaRepository
 from src.infrastructure.repositories.outbox import SqlOutboxRepository
+from src.infrastructure.repositories.project import SqlProjectRepository
 from src.infrastructure.repositories.timeline import SqlTimelineRepository
 from src.infrastructure.repositories.upload_session import SqlUploadSessionRepository
 from src.settings.config import core_settings, storage_settings
@@ -66,4 +67,5 @@ def upload_service(
         storage,
         core_settings,
         storage_settings,
+        SqlProjectRepository(session),
     )

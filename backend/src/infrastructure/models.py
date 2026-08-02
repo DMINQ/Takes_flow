@@ -22,10 +22,23 @@ def _uuid() -> str:
     return uuid.uuid4().hex
 
 
+class ProjectModel(Base):
+    """Groups the media belonging to one editing job (e.g. multiple takes)."""
+
+    __tablename__ = "projects"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    media: Mapped[list["MediaModel"]] = relationship(back_populates="project")
+
+
 class MediaModel(Base):
     __tablename__ = "media"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     filename: Mapped[str] = mapped_column(String(512))
     # Object key, not a filesystem path: with S3 the bytes may never touch this host.
     storage_key: Mapped[str] = mapped_column(String(1024), unique=True)
@@ -35,7 +48,11 @@ class MediaModel(Base):
     checksum: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    project: Mapped[ProjectModel] = relationship(back_populates="media")
     jobs: Mapped[list["JobModel"]] = relationship(back_populates="media", cascade="all, delete-orphan")
+    artifacts: Mapped[list["ArtifactModel"]] = relationship(
+        back_populates="media", cascade="all, delete-orphan"
+    )
 
 
 class UploadSessionModel(Base):
@@ -50,6 +67,7 @@ class UploadSessionModel(Base):
     __tablename__ = "upload_sessions"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     storage_key: Mapped[str] = mapped_column(String(1024), index=True)
     filename: Mapped[str] = mapped_column(String(512))
     declared_size: Mapped[int] = mapped_column(BigInteger)
@@ -107,3 +125,20 @@ class OutboxModel(Base):
     status: Mapped[str] = mapped_column(String(16), default=OutboxStatus.PENDING.value, index=True)
     attempts: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ArtifactModel(Base):
+    """A derived, storage-persisted output of one pipeline stage."""
+
+    __tablename__ = "artifacts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    media_id: Mapped[str] = mapped_column(ForeignKey("media.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[str] = mapped_column(String(32), index=True)
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    storage_key: Mapped[str] = mapped_column(String(1024))
+    content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    artifact_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    media: Mapped[MediaModel] = relationship(back_populates="artifacts")

@@ -19,6 +19,7 @@ from src.domain.errors import TranscriptionError
 def _context(job_id: str = "job-1") -> PipelineContext:
     return PipelineContext(
         job_id=job_id,
+        project_id="project-1",
         media_id="media-1",
         input_path="/tmp/in.wav",
         original_filename="in.wav",

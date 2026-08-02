@@ -82,7 +82,9 @@ def _job(job_id: str = "job-1") -> Job:
 
 
 def _media(media_id: str = "media-1") -> Media:
-    return Media(id=media_id, filename="in.wav", storage_key="objects/in.wav", size_bytes=100)
+    return Media(
+        id=media_id, project_id="project-1", filename="in.wav", storage_key="objects/in.wav", size_bytes=100
+    )
 
 
 @pytest.fixture

@@ -14,6 +14,7 @@ from src.infrastructure.models import UploadSessionModel
 def _to_entity(row: UploadSessionModel) -> UploadSession:
     return UploadSession(
         id=row.id,
+        project_id=row.project_id,
         storage_key=row.storage_key,
         filename=row.filename,
         declared_size=row.declared_size,
@@ -38,6 +39,7 @@ class SqlUploadSessionRepository:
     async def add(self, session: UploadSession) -> UploadSession:
         row = UploadSessionModel(
             id=session.id,
+            project_id=session.project_id,
             storage_key=session.storage_key,
             filename=session.filename,
             declared_size=session.declared_size,

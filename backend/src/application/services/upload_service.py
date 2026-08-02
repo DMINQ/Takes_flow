@@ -30,7 +30,7 @@ from src.domain.errors import (
     UploadSizeMismatchError,
     UploadStateError,
 )
-from src.domain.ports.repositories import MediaRepository, UploadSessionRepository
+from src.domain.ports.repositories import MediaRepository, ProjectRepository, UploadSessionRepository
 from src.domain.ports.services import StoragePort
 from src.settings.config import CoreSettings, StorageSettings
 
@@ -49,6 +49,7 @@ class UploadService:
         storage: StoragePort,
         core: CoreSettings,
         storage_settings: StorageSettings,
+        projects: ProjectRepository | None = None,
     ) -> None:
         self._session = session
         self._sessions = sessions
@@ -56,21 +57,33 @@ class UploadService:
         self._storage = storage
         self._core = core
         self._settings = storage_settings
+        self._projects = projects
 
     async def init(
-        self, *, filename: str, declared_size: int, content_type: str | None
+        self,
+        *,
+        filename: str,
+        declared_size: int,
+        content_type: str | None,
+        project_id: str | None = None,
     ) -> tuple[UploadSession, UploadTicket | None, list[PartUploadTicket]]:
         """
         Validate the declaration, reserve a key, mint tickets.
 
-        Returns (session, single_ticket, part_tickets) — exactly one of the two
-        ticket forms is populated, depending on the planned mode.
+        `project_id` groups this upload with any others in the same editing job
+        (multiple takes of one recording); omit it to start a new project named
+        after the file. Returns (session, single_ticket, part_tickets) — exactly
+        one of the two ticket forms is populated, depending on the planned mode.
         """
         extension = policy.validate_extension(filename)
         policy.validate_declared_size(declared_size, self._core.max_upload_bytes)
 
+        resolved_project_id = project_id or policy.new_project_id()
+        if self._projects is not None:
+            await self._projects.get_or_create(resolved_project_id, name=filename)
+
         media_id = policy.new_media_id()
-        key = policy.build_storage_key(media_id, extension)
+        key = policy.build_storage_key(resolved_project_id, media_id, extension)
         mode, part_size, part_count = policy.plan_upload(declared_size)
         ttl = self._settings.presign_ttl_seconds
 
@@ -90,6 +103,7 @@ class UploadService:
 
         session = UploadSession(
             id=policy.new_media_id(),
+            project_id=resolved_project_id,
             storage_key=key,
             filename=filename,
             declared_size=declared_size,
@@ -105,8 +119,8 @@ class UploadService:
         saved = await self._sessions.add(session)
         await self._session.commit()
         logger.info(
-            "Upload session %s initiated: key=%s mode=%s parts=%s",
-            saved.id, key, mode.value, part_count,
+            "Upload session %s initiated: project=%s key=%s mode=%s parts=%s",
+            saved.id, resolved_project_id, key, mode.value, part_count,
         )
         return saved, single, parts
 
@@ -161,6 +175,7 @@ class UploadService:
 
         media = Media(
             id=session.media_id or policy.new_media_id(),
+            project_id=session.project_id,
             filename=session.filename,
             storage_key=session.storage_key,
             size_bytes=stored.size_bytes,

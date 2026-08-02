@@ -15,6 +15,7 @@ from src.application.services.upload_service import UploadService
 from src.domain.entities import (
     Media,
     PartUploadTicket,
+    Project,
     StoredObject,
     UploadSession,
     UploadTicket,
@@ -119,10 +120,31 @@ class FakeMedia:
         return self.rows.get(media_id)
 
 
+class FakeProjects:
+    def __init__(self) -> None:
+        self.rows: dict[str, Project] = {}
+
+    async def add(self, project: Project) -> Project:
+        self.rows[project.id] = project
+        return project
+
+    async def get(self, project_id: str) -> Project | None:
+        return self.rows.get(project_id)
+
+    async def get_or_create(self, project_id: str, name: str) -> Project:
+        existing = self.rows.get(project_id)
+        if existing is not None:
+            return existing
+        project = Project(id=project_id, name=name)
+        self.rows[project_id] = project
+        return project
+
+
 @pytest.fixture
 def ctx(core_settings, storage_settings):
     session, sessions, media, storage = FakeSession(), FakeSessions(), FakeMedia(), FakeStorage()
-    service = UploadService(session, sessions, media, storage, core_settings, storage_settings)
+    projects = FakeProjects()
+    service = UploadService(session, sessions, media, storage, core_settings, storage_settings, projects)
     return service, storage, sessions, media
 
 

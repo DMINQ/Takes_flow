@@ -14,9 +14,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 
 from faststream import FastStream
 from faststream.redis import RedisBroker
+from faststream.redis.schemas import StreamSub
 
 from src.application.services.upload_service import UploadService
 from src.infrastructure.db import AsyncSessionLocal
@@ -71,20 +73,30 @@ def _build_broker() -> RedisBroker:
     """One RedisBroker with a subscriber per stream, both routed to the same processor.
 
     A shared consumer group means multiple worker replicas load-balance the
-    same stream instead of each replica processing every message.
+    same stream instead of each replica processing every message. Each
+    replica still needs its own unique `consumer` name within that group
+    (Redis' `XREADGROUP` identifies readers by it) — `StreamSub` requires
+    `group` and `consumer` to be set together.
     """
     broker = RedisBroker(broker_settings.url)
+    consumer_name = f"worker-{uuid.uuid4().hex[:8]}"
 
     @broker.subscriber(
-        stream=broker_settings.analysis_stream,
-        group=broker_settings.consumer_group,
+        stream=StreamSub(
+            broker_settings.analysis_stream,
+            group=broker_settings.consumer_group,
+            consumer=consumer_name,
+        ),
     )
     async def _on_analysis(payload: dict) -> None:
         await process_job_event(payload)
 
     @broker.subscriber(
-        stream=broker_settings.export_stream,
-        group=broker_settings.consumer_group,
+        stream=StreamSub(
+            broker_settings.export_stream,
+            group=broker_settings.consumer_group,
+            consumer=consumer_name,
+        ),
     )
     async def _on_export(payload: dict) -> None:
         await process_job_event(payload)

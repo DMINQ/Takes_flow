@@ -10,6 +10,7 @@ from src.infrastructure.models import MediaModel
 def _to_entity(row: MediaModel) -> Media:
     return Media(
         id=row.id,
+        project_id=row.project_id,
         filename=row.filename,
         storage_key=row.storage_key,
         size_bytes=row.size_bytes,
@@ -29,6 +30,7 @@ class SqlMediaRepository:
     async def add(self, media: Media) -> Media:
         row = MediaModel(
             id=media.id,
+            project_id=media.project_id,
             filename=media.filename,
             storage_key=media.storage_key,
             size_bytes=media.size_bytes,

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from src.domain.entities import Phrase, Speaker, TimelineRegion, Word
+from src.domain.entities import Phrase, SpeakerTurn, TimelineRegion, Word
 
 
 class PipelineContext(BaseModel):
@@ -18,6 +18,7 @@ class PipelineContext(BaseModel):
 
     # --- Identity / inputs (set at construction) ---
     job_id: str
+    project_id: str
     media_id: str
     input_path: str = Field(..., description="Absolute path to the source media on the worker.")
     original_filename: str
@@ -37,7 +38,7 @@ class PipelineContext(BaseModel):
     phrases: list[Phrase] = Field(default_factory=list)
 
     # --- Diarization stage ---
-    speakers: list[Speaker] = Field(default_factory=list)
+    speaker_turns: list[SpeakerTurn] = Field(default_factory=list)
 
     # --- Analysis stages (silence / bad-take) ---
     regions: list[TimelineRegion] = Field(default_factory=list)

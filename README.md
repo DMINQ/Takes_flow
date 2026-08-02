@@ -295,8 +295,12 @@ CUDA OOM отдаёт HTTP `507` с подсказкой (меньше моде�
 - **Step 2 ✅** Репозитории + jobs/timeline роутеры
 - **Step 3 ✅** Outbox repository + relay publish
 - **Step 4 ✅** Pipeline core (BasePlugin/runner/registry) + Ingest/Transcribe/Diarize end-to-end, FastStream consumer в worker
-- **Step 5** Silence-детекция (DSP) → регионы `auto_cut`
-- **Step 6** Bad-take детекция на fuzzy, без LLM → регионы `review`
+- **Step 5 ✅** Project/Artifact слой (`projects`, `artifacts` таблицы, project-scoped S3 keys) +
+  диаризация на речевые turn'ы + silence-детекция по гэпам между turn'ами → регионы `auto_cut`,
+  вырезание тишины перед транскрипцией (Ingest → Denoise → Diarize → CutSilence → Transcribe)
+- **Step 6 ✅** Bad-take детекция на fuzzy (thefuzz), без LLM → регионы `review`.
+  Дубли никогда не режутся автоматически — все кандидаты помечаются `REVIEW/ALTERNATE_TAKE`
+  с общим `take_group`, финальное решение (какой дубль оставить) — за автором в UI
 - **Step 7** Экспорт: FFmpeg concat + pedalboard мастеринг (noise → EQ → compressor → LUFS)
 
 Шаг 6 намеренно без LLM: fuzzy даёт baseline для сравнения и служит fallback'ом.

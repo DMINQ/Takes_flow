@@ -75,6 +75,7 @@ async def process_job_event(payload: dict) -> None:
 
         context = PipelineContext(
             job_id=job_id,
+            project_id=media.project_id,
             media_id=media_id,
             input_path="",
             original_filename=media.filename,

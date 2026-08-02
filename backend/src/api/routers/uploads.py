@@ -60,6 +60,7 @@ async def init_upload(
             filename=payload.filename,
             declared_size=payload.size_bytes,
             content_type=payload.content_type,
+            project_id=payload.project_id,
         )
     except UnsupportedMediaError as exc:
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc)) from exc
@@ -71,6 +72,7 @@ async def init_upload(
 
     return UploadInitResponse(
         session_id=session.id,
+        project_id=session.project_id,
         mode=session.mode,
         storage_key=session.storage_key,
         part_size=session.part_size,
@@ -130,6 +132,7 @@ async def complete_upload(
 
     return MediaOut(
         file_id=media.id,
+        project_id=media.project_id,
         filename=media.filename,
         size_bytes=media.size_bytes,
         content_type=media.content_type,

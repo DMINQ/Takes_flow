@@ -39,7 +39,7 @@ def get_diarizer() -> DiarizerPort:
         return PyannoteDiarizer(diarization_settings)
     from src.infrastructure.diarizers.stub import StubDiarizer
 
-    return StubDiarizer()
+    return StubDiarizer(get_audio_engine())
 
 
 @lru_cache

@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
 
-from src.domain.enums import UploadMode
+from src.domain.enums import ArtifactKind, UploadMode
 from src.domain.errors import FileTooLargeError, UnsupportedMediaError
 
 ALLOWED_EXTENSIONS = frozenset(
@@ -109,18 +109,31 @@ def plan_upload(size: int, part_size: int = DEFAULT_PART_SIZE) -> tuple[UploadMo
     return UploadMode.MULTIPART, effective, count
 
 
-def build_storage_key(media_id: str, extension: str, *, now: datetime | None = None) -> str:
+def build_storage_key(
+    project_id: str, media_id: str, extension: str, *, now: datetime | None = None
+) -> str:
     """
     Object key for a source upload.
 
-    Date-prefixed so lifecycle rules and partitioned analytics work naturally,
-    and so no single prefix accumulates every object (which throttles on S3).
+    Namespaced by project so everything belonging to one editing job — the
+    raw upload and every derived artifact (see `build_artifact_key`) — lives
+    under one prefix, and date-prefixed underneath so no single prefix
+    accumulates every object (which throttles on S3).
     """
     stamp = (now or datetime.now(timezone.utc)).strftime("%Y/%m/%d")
-    return f"uploads/{stamp}/{media_id}{extension}"
+    return f"projects/{project_id}/uploads/{stamp}/{media_id}{extension}"
+
+
+def build_artifact_key(project_id: str, media_id: str, kind: ArtifactKind, extension: str) -> str:
+    """Object key for a pipeline-stage output, alongside the project's raw upload."""
+    return f"projects/{project_id}/artifacts/{media_id}/{kind.value}{extension}"
 
 
 def new_media_id() -> str:
+    return uuid.uuid4().hex
+
+
+def new_project_id() -> str:
     return uuid.uuid4().hex
 
 

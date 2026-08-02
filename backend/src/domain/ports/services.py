@@ -14,7 +14,7 @@ from typing import Protocol, runtime_checkable
 
 from src.domain.entities import (
     PartUploadTicket,
-    Speaker,
+    SpeakerTurn,
     StoredObject,
     UploadTicket,
     Word,
@@ -40,10 +40,14 @@ class TranscriberPort(Protocol):
 
 @runtime_checkable
 class DiarizerPort(Protocol):
-    """Assigns speaker labels to time ranges (podcasts / multi-voice)."""
+    """Splits audio into speaker turns (podcasts / multi-voice)."""
 
-    def diarize(self, media_path: Path) -> list[Speaker]:
-        """Return detected speakers. The stub adapter returns a single speaker."""
+    def diarize(self, media_path: Path) -> list[SpeakerTurn]:
+        """Return speech turns in chronological order.
+
+        The stub adapter returns a single turn spanning the whole file, which
+        keeps downstream stages (silence cutting) working with one speaker.
+        """
         ...
 
 

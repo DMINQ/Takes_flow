@@ -1,9 +1,11 @@
 """
-IngestPlugin — materialize the media file locally and probe/preprocess it.
+IngestPlugin — materialize the media file locally and probe its duration.
 
 Runs first in every analysis/export pipeline: everything downstream (Whisper,
 ffmpeg, pedalboard) needs a real path on disk, so this stage is the one place
 that turns a storage key into a working file (see StoragePort.materialize).
+Denoising is a separate stage (DenoisePlugin) so its output can be persisted
+as its own artifact.
 """
 from __future__ import annotations
 
@@ -38,6 +40,7 @@ class IngestPlugin(BasePlugin):
         if media is None:
             raise AudioProcessingError(f"Media '{context.media_id}' not found for ingest.")
 
+        context.project_id = context.project_id or media.project_id
         dest_dir = self._work_dir / context.job_id
         dest_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -46,13 +49,8 @@ class IngestPlugin(BasePlugin):
             raise AudioProcessingError(f"Could not materialize media: {exc}") from exc
 
         duration = self._audio_engine.probe_duration(source_path)
-        preprocessed = self._audio_engine.preprocess(
-            source_path, dest_dir / f"{source_path.stem}.preprocessed{source_path.suffix}"
-        )
 
         context.input_path = str(source_path)
-        context.working_audio_path = str(preprocessed)
+        context.working_audio_path = str(source_path)
         context.duration = duration
-        if str(preprocessed) != str(source_path):
-            context.temp_files.append(str(preprocessed))
         return context
