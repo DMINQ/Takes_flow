@@ -35,10 +35,16 @@ class Runner:
         self._jobs = job_repo
 
     async def run(self, context: PipelineContext) -> PipelineContext:
-        total = len(self._plugins) or 1
+        weights = [max(plugin.progress_weight, 0.0) for plugin in self._plugins]
+        total_weight = sum(weights) or 1.0
+        completed_weight = 0.0
         try:
-            for index, plugin in enumerate(self._plugins):
+            for plugin, weight in zip(self._plugins, weights):
                 logger.info("job %s: running stage '%s'", context.job_id, plugin.name)
+                if self._jobs is not None:
+                    await self._jobs.set_progress(
+                        context.job_id, completed_weight / total_weight, stage=plugin.name
+                    )
                 try:
                     context = await plugin.run(context)
                 except DomainError:
@@ -46,8 +52,11 @@ class Runner:
                 except Exception as exc:  # noqa: BLE001 - convert to a diagnosable PipelineError
                     raise PipelineError(plugin.name, exc) from exc
 
+                completed_weight += weight
                 if self._jobs is not None:
-                    await self._jobs.set_progress(context.job_id, (index + 1) / total)
+                    await self._jobs.set_progress(
+                        context.job_id, completed_weight / total_weight, stage=plugin.name
+                    )
             return context
         finally:
             self._cleanup(context)

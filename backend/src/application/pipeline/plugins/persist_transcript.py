@@ -19,6 +19,7 @@ class PersistTranscriptPlugin(BasePlugin):
     """Writes `context.words` (+ detected language) to storage as an artifact."""
 
     name = "persist_transcript"
+    progress_weight = 0.3
 
     def __init__(self, storage: StoragePort, artifacts: ArtifactRepository) -> None:
         self._storage = storage

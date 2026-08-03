@@ -133,8 +133,18 @@ class StoragePort(Protocol):
 
 @runtime_checkable
 class LLMPort(Protocol):
-    """Optional semantic similarity/embeddings for bad-take detection."""
+    """Optional semantic similarity/embeddings for bad-take detection, plus
+    transcript clean-up (filler words, hesitations, stutters)."""
 
     def similarity(self, a: str, b: str) -> float:
         """Return semantic similarity in 0..1. Off-provider adapters may raise."""
+        ...
+
+    def clean_transcript(self, raw_text: str) -> str:
+        """Return `raw_text` stripped of filler words/hesitations/stutters.
+
+        Must preserve meaning, sentence structure and punctuation — this is a
+        copy-edit pass, not a rewrite. Implementations should be deterministic
+        (temperature=0) so re-runs on the same input are stable.
+        """
         ...

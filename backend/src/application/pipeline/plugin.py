@@ -19,6 +19,13 @@ class BasePlugin(ABC):
     #: Stable identifier used for logging, registry lookup and progress reporting.
     name: str = "plugin"
 
+    #: Relative weight of this stage's duration for progress reporting — stages
+    #: like denoise/diarize are fast in wall-clock terms next to transcribe/LLM,
+    #: so equal-weight-per-stage would make progress lie (e.g. "50%" after a
+    #: 2s denoise on a 10-minute transcribe). Override per-plugin; the runner
+    #: normalizes weights to the total across whatever plugin list it's given.
+    progress_weight: float = 1.0
+
     @abstractmethod
     async def run(self, context: PipelineContext) -> PipelineContext:
         """Execute this stage and return the (possibly mutated) context.

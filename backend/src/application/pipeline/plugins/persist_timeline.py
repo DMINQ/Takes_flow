@@ -16,6 +16,7 @@ class PersistTimelinePlugin(BasePlugin):
     """Writes `context.regions` to the timeline repository, keyed by media."""
 
     name = "persist_timeline"
+    progress_weight = 0.1
 
     def __init__(self, timeline_repo: TimelineRepository) -> None:
         self._timeline = timeline_repo

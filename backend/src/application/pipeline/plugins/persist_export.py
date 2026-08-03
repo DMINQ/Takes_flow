@@ -21,6 +21,7 @@ class PersistExportPlugin(BasePlugin):
     """Uploads `context.output_path` to storage and records it as an EXPORT artifact."""
 
     name = "persist_export"
+    progress_weight = 0.3
 
     def __init__(self, storage: StoragePort, artifacts: ArtifactRepository) -> None:
         self._storage = storage

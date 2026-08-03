@@ -1,6 +1,7 @@
 """SqlAlchemy MediaRepository — maps MediaModel <-> Media entity."""
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities import Media
@@ -45,3 +46,12 @@ class SqlMediaRepository:
     async def get(self, media_id: str) -> Media | None:
         row = await self._s.get(MediaModel, media_id)
         return _to_entity(row) if row else None
+
+    async def list_by_project(self, project_id: str) -> list[Media]:
+        stmt = (
+            select(MediaModel)
+            .where(MediaModel.project_id == project_id)
+            .order_by(MediaModel.created_at.asc())
+        )
+        rows = (await self._s.execute(stmt)).scalars().all()
+        return [_to_entity(row) for row in rows]

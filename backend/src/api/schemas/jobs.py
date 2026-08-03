@@ -26,4 +26,5 @@ class JobResponse(BaseModel):
     kind: JobKind
     status: JobStatus
     progress: float
+    stage: str | None = None
     error: str | None = None

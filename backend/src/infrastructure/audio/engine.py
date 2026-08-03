@@ -40,26 +40,36 @@ class FfmpegPedalboardEngine:
 
     def preprocess(self, media_path: Path, out_path: Path) -> Path:
         """
-        Decode the ingested media to mono 16 kHz PCM WAV.
+        Decode + denoise the ingested media into mono 16 kHz PCM WAV.
 
         Every later stage (pyannote diarization, faster-whisper/remote ASR)
         expects raw PCM it can read directly — the source upload can be any
-        container ffmpeg understands (mp4, mkv, mp3, ...). This step is also
-        where a real denoise/normalize chain would hook in (tracked
-        separately); for now it's a straight decode so diarization/transcription
-        never see a container format they can't open themselves.
+        container ffmpeg understands (mp4, mkv, mp3, ...), so this step always
+        decodes regardless of denoise settings.
+
+        Denoise chain (highpass 80 Hz -> lowpass 8000 Hz -> ffmpeg's `anlmdn`
+        adaptive filter) — same filters/order as the reference project's
+        NoiseReductionPlugin, just run in-process here instead of a separate
+        pipeline stage. `anlmdn` is a plain DSP filter (no ML model, no GPU),
+        so this stays cheap even on CPU-only deployments.
         """
         wav_path = out_path.with_suffix(".wav")
         try:
+            stream = ffmpeg.input(str(media_path))
+            if self._mastering.denoise_enabled:
+                stream = (
+                    stream.filter("highpass", f=self._mastering.denoise_highpass_hz)
+                    .filter("lowpass", f=self._mastering.denoise_lowpass_hz)
+                    .filter("anlmdn")
+                )
             (
-                ffmpeg.input(str(media_path))
-                .output(str(wav_path), ac=1, ar=16000, format="wav")
+                stream.output(str(wav_path), ac=1, ar=16000, format="wav")
                 .overwrite_output()
                 .run(quiet=True)
             )
         except ffmpeg.Error as exc:
             detail = exc.stderr.decode(errors="ignore") if exc.stderr else str(exc)
-            raise AudioProcessingError(f"Could not decode media to WAV: {detail}") from exc
+            raise AudioProcessingError(f"Could not decode/denoise media to WAV: {detail}") from exc
         return wav_path
 
     def assemble(self, media_path: Path, keep_ranges: list[tuple[float, float]], out_path: Path) -> Path:

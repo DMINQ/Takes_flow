@@ -182,6 +182,7 @@ class Job:
     kind: JobKind
     status: JobStatus = JobStatus.PENDING
     progress: float = 0.0
+    stage: str | None = None
     error: str | None = None
     created_at: datetime | None = None
 

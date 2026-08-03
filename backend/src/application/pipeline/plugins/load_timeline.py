@@ -18,6 +18,7 @@ class LoadTimelinePlugin(BasePlugin):
     """Reads `context.regions` from the timeline repository."""
 
     name = "load_timeline"
+    progress_weight = 0.1
 
     def __init__(self, timeline_repo: TimelineRepository) -> None:
         self._timeline = timeline_repo

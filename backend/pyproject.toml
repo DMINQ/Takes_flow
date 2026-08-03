@@ -45,6 +45,8 @@ dependencies = [
     "soundfile==0.12.1",      # reads/writes wav as numpy arrays for pedalboard/pyloudnorm
     # --- NLP: bad-take / duplicate detection ---
     "thefuzz==0.22.1",
+    # --- LLM: transcript clean-up (filler words/hesitations) via Groq ---
+    "groq==0.15.0",
     # --- Misc ---
     "httpx==0.28.1",          # remote provider adapters (remote whisper/llm)
     "python-magic==0.4.27",   # MIME sniffing for uploads

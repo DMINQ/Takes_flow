@@ -19,6 +19,7 @@ class MasterPlugin(BasePlugin):
     """Applies the mastering chain to `context.working_audio_path`."""
 
     name = "master"
+    progress_weight = 1.0
 
     def __init__(self, audio_engine: AudioEnginePort) -> None:
         self._audio_engine = audio_engine

@@ -22,6 +22,7 @@ class DenoisePlugin(BasePlugin):
     """Denoises/normalizes the working audio and records it as an artifact."""
 
     name = "denoise"
+    progress_weight = 0.5
 
     def __init__(
         self, audio_engine: AudioEnginePort, storage: StoragePort, artifacts: ArtifactRepository

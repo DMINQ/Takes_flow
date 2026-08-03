@@ -20,6 +20,7 @@ class TranscribePlugin(BasePlugin):
     """Runs the configured transcriber over the (preprocessed) working audio."""
 
     name = "transcribe"
+    progress_weight = 6.0
 
     def __init__(self, transcriber: TranscriberPort) -> None:
         self._transcriber = transcriber

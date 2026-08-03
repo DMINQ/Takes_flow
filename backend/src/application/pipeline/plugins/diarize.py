@@ -24,6 +24,7 @@ class DiarizePlugin(BasePlugin):
     """Detects speaker turns over the working audio and records them."""
 
     name = "diarize"
+    progress_weight = 4.0
 
     def __init__(self, diarizer: DiarizerPort, storage: StoragePort, artifacts: ArtifactRepository) -> None:
         self._diarizer = diarizer

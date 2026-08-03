@@ -22,6 +22,7 @@ def _to_entity(row: JobModel) -> Job:
         kind=JobKind(row.kind),
         status=JobStatus(row.status),
         progress=row.progress,
+        stage=row.stage,
         error=row.error,
         created_at=row.created_at,
     )
@@ -76,9 +77,28 @@ class SqlJobRepository:
             row.error = error
         await self._s.flush()
 
-    async def set_progress(self, job_id: str, progress: float) -> None:
+    async def get_latest_for_media(self, media_id: str) -> Job | None:
+        stmt = (
+            select(JobModel)
+            .where(JobModel.media_id == media_id)
+            .order_by(JobModel.created_at.desc())
+            .limit(1)
+        )
+        row = (await self._s.execute(stmt)).scalar_one_or_none()
+        return _to_entity(row) if row else None
+
+    async def set_progress(self, job_id: str, progress: float, stage: str | None = None) -> None:
+        """Persist progress/stage and commit immediately (not just flush).
+
+        Progress is polled by GET /jobs/{id} from a *different* HTTP request's
+        transaction, so a flush-only update is invisible until this whole job
+        finishes — the commit here is what makes intra-job progress observable
+        while the job is still running.
+        """
         row = await self._s.get(JobModel, job_id)
         if row is None:
             return
         row.progress = progress
-        await self._s.flush()
+        if stage is not None:
+            row.stage = stage
+        await self._s.commit()

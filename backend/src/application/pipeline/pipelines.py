@@ -69,13 +69,16 @@ def build_analysis_plugins(session: AsyncSession) -> list[BasePlugin]:
 
 
 def build_export_plugins(session: AsyncSession) -> list[BasePlugin]:
-    """Ingest -> LoadTimeline -> AssembleExport -> Master -> PersistExport.
+    """Ingest -> Denoise -> LoadTimeline -> AssembleExport -> Master -> PersistExport.
 
-    Reuses the same IngestPlugin as analysis (materialize + probe duration)
-    but skips denoise/diarize/transcribe entirely — export only needs the
-    region map an ANALYSIS job already produced (LoadTimelinePlugin) plus the
-    user's take choices (PipelineContext.export_selection) to know what to
-    assemble and master.
+    Reuses the same Ingest/Denoise stages as analysis (materialize + probe
+    duration + ffmpeg denoise) so the exported file actually reflects the
+    noise reduction applied during analysis, instead of re-cutting the raw
+    upload — export only additionally needs the region map an ANALYSIS job
+    already produced (LoadTimelinePlugin) plus the user's take choices
+    (PipelineContext.export_selection) to know what to assemble and master.
+    Diarize/CutSilence/Transcribe are still skipped: those regions are already
+    persisted from the ANALYSIS run.
     """
     storage = get_storage()
     media_repo = SqlMediaRepository(session)
@@ -83,6 +86,7 @@ def build_export_plugins(session: AsyncSession) -> list[BasePlugin]:
     audio_engine = get_audio_engine()
     return [
         IngestPlugin(storage, audio_engine, media_repo, _work_dir()),
+        DenoisePlugin(audio_engine, storage, artifact_repo),
         LoadTimelinePlugin(SqlTimelineRepository(session)),
         AssembleExportPlugin(audio_engine),
         MasterPlugin(audio_engine),

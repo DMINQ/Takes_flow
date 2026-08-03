@@ -1,6 +1,7 @@
 """SqlAlchemy ProjectRepository — maps ProjectModel <-> Project entity."""
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities import Project
@@ -35,3 +36,8 @@ class SqlProjectRepository:
         self._s.add(row)
         await self._s.flush()
         return _to_entity(row)
+
+    async def list_all(self) -> list[Project]:
+        stmt = select(ProjectModel).order_by(ProjectModel.created_at.desc())
+        rows = (await self._s.execute(stmt)).scalars().all()
+        return [_to_entity(row) for row in rows]

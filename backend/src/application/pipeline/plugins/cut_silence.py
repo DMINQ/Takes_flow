@@ -25,6 +25,7 @@ class CutSilencePlugin(BasePlugin):
     """Cuts silence out of the working audio using diarized speech turns."""
 
     name = "cut_silence"
+    progress_weight = 1.0
 
     def __init__(
         self,

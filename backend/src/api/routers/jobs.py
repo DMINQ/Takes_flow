@@ -40,7 +40,7 @@ async def create_job(
     logger.info("Created %s job %s for media %s", body.kind.value, job.id, body.media_id)
     return JobResponse(
         id=job.id, media_id=job.media_id, kind=job.kind,
-        status=job.status, progress=job.progress, error=job.error,
+        status=job.status, progress=job.progress, stage=job.stage, error=job.error,
     )
 
 
@@ -54,5 +54,5 @@ async def get_job(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"No job '{job_id}'.")
     return JobResponse(
         id=job.id, media_id=job.media_id, kind=job.kind,
-        status=job.status, progress=job.progress, error=job.error,
+        status=job.status, progress=job.progress, stage=job.stage, error=job.error,
     )

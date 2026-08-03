@@ -22,6 +22,7 @@ class IngestPlugin(BasePlugin):
     """Materializes the source media and fills in duration/working_audio_path."""
 
     name = "ingest"
+    progress_weight = 0.5
 
     def __init__(
         self,

@@ -83,6 +83,28 @@ async def transcribe_media(
 
 
 @router.get(
+    "/{media_id}/source",
+    response_model=ExportDownloadResponse,
+    summary="Get a presigned download URL for the original uploaded source file",
+)
+async def get_source_download(
+    media_id: str,
+    service: MediaService = Depends(media_service),
+) -> ExportDownloadResponse:
+    """Mint a short-lived GET URL for the media's original uploaded file.
+
+    Used by the frontend to play back the source audio on the timeline/review
+    screen (waveform + region playback), before any export has run.
+    """
+    try:
+        ticket = await service.get_source_download(media_id)
+    except MediaNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return ExportDownloadResponse(url=ticket.url, method=ticket.method, expires_at=ticket.expires_at)
+
+
+@router.get(
     "/{media_id}/export",
     response_model=ExportDownloadResponse,
     summary="Get a presigned download URL for the finished export",

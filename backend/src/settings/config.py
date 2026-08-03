@@ -28,6 +28,7 @@ class LLMProvider(str, Enum):
     OFF = "off"
     LOCAL = "local"
     REMOTE = "remote"
+    GROQ = "groq"
 
 
 class StorageProvider(str, Enum):
@@ -138,6 +139,19 @@ class LLMSettings(BaseSettings):
     model: str = "local"
     similarity_threshold: float = 0.75
 
+    # --- Groq provider (transcript clean-up: filler words/hesitations/stutters) ---
+    groq_api_key: str | None = None
+    groq_model: str = "llama-3.1-8b-instant"
+    groq_temperature: float = 0.0
+    groq_timeout_seconds: float = 30.0
+    groq_system_prompt: str = (
+        "Ты — строгий редактор-корректор. Твоя единственная задача: получить "
+        "сырой текст расшифровки и вернуть его же, но без слов-паразитов "
+        "(э-э, м-э, ну, короче, типа) и запинок. Не меняй смысл, структуру "
+        "предложений и пунктуацию. Не пиши никаких приветствий или "
+        "комментариев, верни только очищенный текст."
+    )
+
 
 _INSECURE_PRESIGN_SECRET = "dev-only-insecure-presign-secret"
 
@@ -204,6 +218,13 @@ class MasteringSettings(BaseSettings):
     """Export mastering chain: noise gate -> highpass -> EQ -> compressor -> LUFS."""
 
     model_config = SettingsConfigDict(**_CONFIG, env_prefix="mastering_")
+
+    # Denoise applied during ingest preprocessing (FfmpegPedalboardEngine.preprocess),
+    # not part of the mastering chain below — same ffmpeg filters/order as the
+    # reference project's NoiseReductionPlugin (highpass -> lowpass -> anlmdn).
+    denoise_enabled: bool = True
+    denoise_highpass_hz: float = 80.0
+    denoise_lowpass_hz: float = 8000.0
 
     noise_gate_threshold_db: float = -40.0
     highpass_hz: float = 80.0

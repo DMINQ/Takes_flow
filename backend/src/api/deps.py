@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.services.job_service import JobService
 from src.application.services.media_service import MediaService
+from src.application.services.project_service import ProjectService
 from src.application.services.timeline_service import TimelineService
 from src.application.services.upload_service import UploadService
 from src.domain.ports.services import StoragePort, TranscriberPort
@@ -55,6 +56,14 @@ def job_service(session: AsyncSession = Depends(get_db)) -> JobService:
 
 def timeline_service(session: AsyncSession = Depends(get_db)) -> TimelineService:
     return TimelineService(SqlTimelineRepository(session))
+
+
+def project_service(session: AsyncSession = Depends(get_db)) -> ProjectService:
+    return ProjectService(
+        SqlProjectRepository(session),
+        SqlMediaRepository(session),
+        SqlJobRepository(session),
+    )
 
 
 def upload_service(

@@ -52,6 +52,7 @@ class FailingPlugin(BasePlugin):
 class FakeJobRepository:
     def __init__(self) -> None:
         self.progress: list[tuple[str, float]] = []
+        self.stages: list[str | None] = []
 
     async def add(self, job):
         raise NotImplementedError
@@ -65,8 +66,9 @@ class FakeJobRepository:
     async def set_status(self, job_id, status, error=None):
         raise NotImplementedError
 
-    async def set_progress(self, job_id: str, progress: float) -> None:
+    async def set_progress(self, job_id: str, progress: float, stage: str | None = None) -> None:
         self.progress.append((job_id, progress))
+        self.stages.append(stage)
 
 
 class TestRunner:
@@ -79,7 +81,15 @@ class TestRunner:
 
         assert log == ["a", "b"]
         assert result.metadata == {"a": True, "b": True}
-        assert jobs.progress == [("job-1", 0.5), ("job-1", 1.0)]
+        # Runner reports progress before and after each stage (start-of-stage +
+        # end-of-stage), using each plugin's progress_weight (default 1.0 here).
+        assert jobs.progress == [
+            ("job-1", 0.0),
+            ("job-1", 0.5),
+            ("job-1", 0.5),
+            ("job-1", 1.0),
+        ]
+        assert jobs.stages == ["a", "a", "b", "b"]
 
     async def test_domain_error_propagates_unwrapped(self):
         runner = Runner([FailingPlugin(TranscriptionError("bad audio"))])

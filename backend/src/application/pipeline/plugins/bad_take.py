@@ -22,6 +22,7 @@ class BadTakePlugin(BasePlugin):
     """Flags fuzzy-duplicate phrases as REVIEW regions, without cutting anything."""
 
     name = "bad_take"
+    progress_weight = 1.0
 
     def __init__(self, settings: AnalysisSettings) -> None:
         self._threshold = settings.bad_take_similarity_threshold

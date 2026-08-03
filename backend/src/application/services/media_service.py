@@ -31,6 +31,13 @@ class MediaService:
     async def get(self, media_id: str) -> Media | None:
         return await self._media.get(media_id)
 
+    async def get_source_download(self, media_id: str, *, expires_in: int = 3600) -> UploadTicket:
+        """Mint a presigned GET for the original uploaded source file of `media_id`."""
+        media = await self._media.get(media_id)
+        if media is None:
+            raise MediaNotFoundError(f"No media found for id '{media_id}'.")
+        return await self._storage.presign_get(media.storage_key, expires_in=expires_in)
+
     async def get_export_download(self, media_id: str, *, expires_in: int = 3600) -> UploadTicket:
         """Mint a presigned GET for the most recent EXPORT artifact of `media_id`."""
         if self._artifacts is None:

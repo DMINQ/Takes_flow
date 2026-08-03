@@ -49,7 +49,7 @@ class FakeJobRepository:
     async def set_status(self, job_id: str, status: JobStatus, error: str | None = None) -> None:
         self.statuses.append((job_id, status, error))
 
-    async def set_progress(self, job_id: str, progress: float) -> None:
+    async def set_progress(self, job_id: str, progress: float, stage: str | None = None) -> None:
         self.progress.append((job_id, progress))
 
 
