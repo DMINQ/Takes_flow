@@ -24,8 +24,14 @@ from src.application.services.upload_service import UploadService
 from src.infrastructure.db import AsyncSessionLocal
 from src.infrastructure.repositories.media import SqlMediaRepository
 from src.infrastructure.repositories.upload_session import SqlUploadSessionRepository
-from src.settings.config import broker_settings, core_settings, storage_settings, transcription_settings
-from src.settings.providers import get_storage, get_transcriber
+from src.settings.config import (
+    broker_settings,
+    core_settings,
+    diarization_settings,
+    storage_settings,
+    transcription_settings,
+)
+from src.settings.providers import get_diarizer, get_storage, get_transcriber
 from src.worker.processor import process_job_event
 
 logging.basicConfig(
@@ -106,15 +112,27 @@ def _build_broker() -> RedisBroker:
 
 async def main() -> None:
     storage_settings.require_secure_presign_secret(core_settings.debug)
-    logger.info("Worker starting (transcriber=%s)", transcription_settings.provider.value)
+    logger.info(
+        "Worker starting (transcriber=%s, diarizer=%s)",
+        transcription_settings.provider.value,
+        diarization_settings.provider.value,
+    )
 
-    # Preload the model once at startup (skip for remote provider).
+    # Preload models once at startup (each adapter's warmup() is a no-op if
+    # there's nothing to preload, e.g. RemoteTranscriber/StubDiarizer).
     transcriber = get_transcriber()
     warmup = getattr(transcriber, "warmup", None)
     if callable(warmup):
         logger.info("Warming up transcriber…")
         await asyncio.to_thread(warmup)
         logger.info("Transcriber ready.")
+
+    diarizer = get_diarizer()
+    diarizer_warmup = getattr(diarizer, "warmup", None)
+    if callable(diarizer_warmup):
+        logger.info("Warming up diarizer…")
+        await asyncio.to_thread(diarizer_warmup)
+        logger.info("Diarizer ready.")
 
     reap_task = asyncio.create_task(_reap_stale_uploads_loop())
 

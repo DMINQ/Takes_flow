@@ -22,6 +22,21 @@ dependencies = [
     # --- Transcription (word-level timestamps) ---
     "faster-whisper==1.1.1",
     "requests==2.32.3",       # faster-whisper 1.1.1 imports it but doesn't declare it
+    # --- Diarization (speaker turns) ---
+    # torch/torchaudio resolve to CUDA 12.1 wheels (see [tool.uv.sources] below)
+    # so the worker can run pyannote.audio on GPU out of the box.
+    "torch==2.5.1",
+    "torchaudio==2.5.1",
+    "pyannote-audio==3.3.2",
+    # pyannote-audio 3.3.2 still calls hf_hub_download(use_auth_token=...), which
+    # huggingface_hub>=0.26 removed in favor of token=. Pin below that line.
+    "huggingface-hub<0.26",
+    # pyannote-audio imports matplotlib in some pipeline code paths even though
+    # nothing here renders plots — an unstated dependency of theirs.
+    "matplotlib==3.10.0",
+    # Custom diarizer (DIARIZER_PROVIDER=custom): hand-rolled VAD+embedding+HDBSCAN clustering.
+    "hdbscan==0.8.40",
+    "scikit-learn==1.6.1",
     # --- Media / audio processing ---
     "ffmpeg-python==0.2.0",
     "pedalboard==0.9.16",
@@ -48,6 +63,20 @@ dev = [{include-group = "lint"}, {include-group = "tests"}, "ipdb"]
 # Keep the project itself non-installed in Docker's dep layer (see Dockerfile);
 # this caches the venv independently of source changes.
 package = false
+
+[[tool.uv.index]]
+# CUDA 12.1 wheels for torch/torchaudio — PyPI only ships CPU wheels. Pin the
+# diarizer's stack to these so `uv sync` gives the worker GPU support without
+# a separate requirements file. If you deploy on CPU-only hardware, drop this
+# index and the two [tool.uv.sources] entries below (pip then resolves the
+# plain CPU wheels from PyPI) and set DIARIZER_DEVICE=cpu.
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
+torchaudio = { index = "pytorch-cu121" }
 
 [tool.ruff]
 line-length = 110

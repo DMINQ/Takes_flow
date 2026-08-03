@@ -7,6 +7,13 @@
 # The same image runs the API, the worker, and the outbox relay — only the
 # container `command` differs (see docker-compose.yml).
 #
+# GPU note: torch/torchaudio are pinned to CUDA 12.1 wheels in pyproject.toml
+# ([tool.uv.sources]), which bundle their own CUDA/cuDNN runtime libraries
+# (the nvidia-*-cu12 pip packages) — no system CUDA image is needed here, only
+# a host NVIDIA driver + nvidia-container-toolkit so `--gpus`/`deploy.resources`
+# can hand the device through. Same approach as the reference project's
+# Dockerfile (plain python:3.12-slim, GPU support entirely via pip wheels).
+#
 # Build context is ./backend (see docker-compose.yml `build.context`); all
 # COPY paths below are relative to that context, not to this Dockerfile.
 # =============================================================================
@@ -60,9 +67,3 @@ EXPOSE 8000
 ENTRYPOINT ["/entrypoint.sh"]
 # Default command = API. Worker/relay override this in compose.
 CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-# -----------------------------------------------------------------------------
-# GPU: base the runtime stage on nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04,
-# install python+ffmpeg there, set TRANSCRIBER_DEVICE=cuda / COMPUTE_TYPE=float16,
-# and run with `--gpus all`. CTranslate2 wheels bundle the CUDA libs.
-# -----------------------------------------------------------------------------

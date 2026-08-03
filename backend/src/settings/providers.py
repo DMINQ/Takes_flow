@@ -38,6 +38,10 @@ def get_diarizer() -> DiarizerPort:
         from src.infrastructure.diarizers.pyannote import PyannoteDiarizer
 
         return PyannoteDiarizer(diarization_settings)
+    if provider is DiarizerProvider.CUSTOM:
+        from src.infrastructure.diarizers.custom import CustomDiarizer
+
+        return CustomDiarizer(diarization_settings)
     from src.infrastructure.diarizers.stub import StubDiarizer
 
     return StubDiarizer(get_audio_engine())

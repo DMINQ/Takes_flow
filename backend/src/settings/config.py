@@ -21,6 +21,7 @@ class DiarizerProvider(str, Enum):
     OFF = "off"
     STUB = "stub"
     PYANNOTE = "pyannote"
+    CUSTOM = "custom"
 
 
 class LLMProvider(str, Enum):
@@ -101,8 +102,9 @@ class TranscriptionSettings(BaseSettings):
     cpu_threads: int = 0
     beam_size: int = 5
     model_cache_dir: str = "/models"
-    # Remote
+    # Remote (HTTP POST to an onerahmet/openai-whisper-asr-webservice-compatible /asr endpoint)
     remote_url: str = "http://whisper:9000/asr"
+    remote_timeout_seconds: float = 3000.0
 
 
 class DiarizationSettings(BaseSettings):
@@ -111,6 +113,20 @@ class DiarizationSettings(BaseSettings):
     provider: DiarizerProvider = DiarizerProvider.STUB
     hf_token: str | None = None
     remote_url: str | None = None
+    # Pyannote provider (in-process pyannote.audio pipeline).
+    model: str = "pyannote/speaker-diarization-3.1"
+    device: str = "auto"  # "auto" | "cpu" | "cuda"
+    model_cache_dir: str = "/models"
+    # Optional hints passed to the pipeline; None lets pyannote infer freely.
+    min_speakers: int | None = None
+    max_speakers: int | None = None
+    # Custom provider (VAD + embedding + HDBSCAN, hand-rolled clustering pipeline).
+    custom_segmentation_model: str = "pyannote/segmentation-3.0"
+    custom_embedding_model: str = "pyannote/embedding"
+    custom_vad_threshold: float = 0.3
+    custom_min_segment_duration: float = 0.5
+    custom_distance_threshold: float = 0.5
+    custom_min_cluster_size: int = 2
 
 
 class LLMSettings(BaseSettings):

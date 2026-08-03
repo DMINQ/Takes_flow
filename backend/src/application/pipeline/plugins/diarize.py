@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from anyio import to_thread
+
 from src.application.pipeline.artifacts import persist_json_artifact
 from src.application.pipeline.plugin import BasePlugin
 from src.domain.dto import PipelineContext
@@ -30,7 +32,9 @@ class DiarizePlugin(BasePlugin):
 
     async def run(self, context: PipelineContext) -> PipelineContext:
         audio_path = context.working_audio_path or context.input_path
-        turns = self._diarizer.diarize(Path(audio_path))
+        # diarize() is blocking (CPU/GPU-bound, e.g. PyannoteDiarizer) — same
+        # offload pattern as TranscribePlugin, so it doesn't stall the event loop.
+        turns = await to_thread.run_sync(self._diarizer.diarize, Path(audio_path))
         context.speaker_turns = turns
 
         await persist_json_artifact(

@@ -40,13 +40,27 @@ class FfmpegPedalboardEngine:
 
     def preprocess(self, media_path: Path, out_path: Path) -> Path:
         """
-        Denoise + normalize a working copy for more accurate transcription.
+        Decode the ingested media to mono 16 kHz PCM WAV.
 
-        Phase 2 fills this in with pedalboard (NoiseGate/EQ/normalize). For now it
-        returns the source unchanged so ingest works end-to-end.
+        Every later stage (pyannote diarization, faster-whisper/remote ASR)
+        expects raw PCM it can read directly — the source upload can be any
+        container ffmpeg understands (mp4, mkv, mp3, ...). This step is also
+        where a real denoise/normalize chain would hook in (tracked
+        separately); for now it's a straight decode so diarization/transcription
+        never see a container format they can't open themselves.
         """
-        logger.debug("preprocess: passthrough (pedalboard chain lands in Phase 2)")
-        return media_path
+        wav_path = out_path.with_suffix(".wav")
+        try:
+            (
+                ffmpeg.input(str(media_path))
+                .output(str(wav_path), ac=1, ar=16000, format="wav")
+                .overwrite_output()
+                .run(quiet=True)
+            )
+        except ffmpeg.Error as exc:
+            detail = exc.stderr.decode(errors="ignore") if exc.stderr else str(exc)
+            raise AudioProcessingError(f"Could not decode media to WAV: {detail}") from exc
+        return wav_path
 
     def assemble(self, media_path: Path, keep_ranges: list[tuple[float, float]], out_path: Path) -> Path:
         """

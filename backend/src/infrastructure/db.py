@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-from src.settings.config import core_settings, db_settings
+from src.settings.config import db_settings
 
 
 class Base(DeclarativeBase):
@@ -21,7 +21,7 @@ class Base(DeclarativeBase):
 
 engine = create_async_engine(
     db_settings.url,
-    echo=core_settings.debug,
+    echo=False,  # flip to True locally if you need to see raw SQL; noisy in every log otherwise
     future=True,
     pool_pre_ping=True,  # survive stale connections to remote DBs
 )
